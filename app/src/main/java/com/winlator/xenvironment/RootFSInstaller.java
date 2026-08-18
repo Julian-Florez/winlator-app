@@ -10,6 +10,7 @@ import com.winlator.SettingsFragment;
 import com.winlator.container.Container;
 import com.winlator.container.ContainerManager;
 import com.winlator.core.AppUtils;
+import com.winlator.core.Callback;
 import com.winlator.core.DownloadProgressDialog;
 import com.winlator.core.FileUtils;
 import com.winlator.core.PreloaderDialog;
@@ -45,14 +46,24 @@ public abstract class RootFSInstaller {
     }
 
     public static void install(final MainActivity activity) {
+        install(activity, null);
+    }
+
+    public static void install(final MainActivity activity, final Callback<Boolean> callback) {
+        install(activity, callback, false);
+    }
+
+    public static void install(final MainActivity activity, final Callback<Boolean> callback, boolean minimalProgress) {
         AppUtils.keepScreenOn(activity);
         RootFS rootFS = RootFS.find(activity);
         final File rootDir = rootFS.getRootDir();
 
         SettingsFragment.resetBox64Version(activity);
 
-        final DownloadProgressDialog dialog = new DownloadProgressDialog(activity);
-        dialog.show(R.string.installing_system_files);
+        final DownloadProgressDialog dialog = minimalProgress ? null : new DownloadProgressDialog(activity);
+        final PreloaderDialog preloaderDialog = minimalProgress ? new PreloaderDialog(activity) : null;
+        if (dialog != null) dialog.show(R.string.installing_system_files);
+        else preloaderDialog.show(R.string.installing_system_files);
         Executors.newSingleThreadExecutor().execute(() -> {
             clearRootDir(rootDir);
             final long contentLength = TarCompressorUtils.getContentLength(TarCompressorUtils.Type.ZSTD, activity, FILENAME, rootDir);
@@ -62,7 +73,7 @@ public abstract class RootFSInstaller {
                 if (size > 0) {
                     long totalSize = totalSizeRef.addAndGet(size);
                     final int progress = (int)(((float)totalSize / contentLength) * 100);
-                    activity.runOnUiThread(() -> dialog.setProgress(progress));
+                    if (dialog != null) activity.runOnUiThread(() -> dialog.setProgress(progress));
                 }
                 return file;
             });
@@ -73,13 +84,26 @@ public abstract class RootFSInstaller {
             }
             else AppUtils.showToast(activity, R.string.unable_to_install_system_files);
 
-            dialog.closeOnUiThread();
+            activity.runOnUiThread(() -> {
+                if (dialog != null) dialog.close();
+                else preloaderDialog.close();
+                if (callback != null) callback.call(success);
+            });
         });
     }
 
     public static void installIfNeeded(final MainActivity activity) {
+        installIfNeeded(activity, null);
+    }
+
+    public static void installIfNeeded(final MainActivity activity, final Callback<Boolean> callback) {
+        installIfNeeded(activity, callback, false);
+    }
+
+    public static void installIfNeeded(final MainActivity activity, final Callback<Boolean> callback, boolean minimalProgress) {
         RootFS rootFS = RootFS.find(activity);
-        if (!rootFS.isValid() || rootFS.getVersion() < LATEST_VERSION) install(activity);
+        if (!rootFS.isValid() || rootFS.getVersion() < LATEST_VERSION) install(activity, callback, minimalProgress);
+        else if (callback != null) callback.call(true);
     }
 
     private static void clearOptDir(File optDir) {

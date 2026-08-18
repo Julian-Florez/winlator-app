@@ -1,0 +1,90 @@
+{
+  "schemaVersion": 1,
+  "app": {
+    "folderName": "TestApp",
+    "sourceFolder": "TestApp/publish/win-x64-folder",
+    "asset": "test_app.tzst",
+    "windowsDirectory": "Win2APKTest",
+    "windowsPath": "C:\\Win2APKTest",
+    "executable": "Win2APKTest.exe"
+  },
+  "android": {
+    "applicationIdBase": "com",
+    "applicationId": "com.winlator",
+    "deriveApplicationIdFromFolder": true,
+    "rootfsPackageId": "com.winlator",
+    "rootfsPathAlias": "/proc/self/fd/3",
+    "pathRewriteAssets": [
+      "rootfs.tzst",
+      "rootfs_patches.tzst",
+      "container_pattern.tzst",
+      "box64/box64-0.4.0.tzst",
+      "graphics_driver/gladio-1.0.tzst",
+      "graphics_driver/turnip-26.1.0.tzst",
+      "graphics_driver/virgl-23.1.9.tzst",
+      "graphics_driver/vortek-2.1.tzst"
+    ],
+    "labelFromFolder": true,
+    "label": "TestApp",
+    "versionCode": 28,
+    "versionName": "11.1-core"
+  },
+  "startup": {
+    "coreMode": true,
+    "autoLaunch": true,
+    "showGeneralInterface": false,
+    "minimalLoading": true,
+    "requestStoragePermission": false,
+    "closeCoreWhenApplicationExits": true,
+    "errorMode": "technical_dialog",
+    "loadingText": "Preparing application..."
+  },
+  "runtime": {
+    "appTheme": "dark",
+    "soundfont": "",
+    "midiInputDevice": "auto",
+    "box64Version": "",
+    "box64Logs": 0,
+    "saveLogsToFile": false,
+    "logFile": "",
+    "useAndroidClipboardOnWine": false,
+    "enableWineDebug": false,
+    "wineDebugChannels": "warn,err,fixme",
+    "openAndroidBrowserFromWine": true,
+    "cursorColor": 16777215,
+    "cursorScale": 1.0,
+    "cursorSpeed": 1.0,
+    "capturePointerOnExternalMouse": true,
+    "moveCursorToTouchpoint": false,
+    "overlayOpacity": 0.4,
+    "gamepadModel": "",
+    "languageIndex": -1
+  },
+  "shortcut": {
+    "name": "Win2APKTest",
+    "desktopFile": "Win2APKTest.desktop",
+    "execArguments": "",
+    "forceFullscreen": false
+  },
+  "container": {
+    "id": 1,
+    "name": "Container-1",
+    "screenSize": "1280x720",
+    "envVars": "ZINK_DESCRIPTORS=lazy ZINK_DEBUG=compact MESA_SHADER_CACHE_DISABLE=false MESA_SHADER_CACHE_MAX_SIZE=512MB mesa_glthread=true WINEESYNC=1 TU_DEBUG=noconform",
+    "cpuList": "auto",
+    "cpuListWoW64": "auto",
+    "graphicsDriver": "turnip,gladio",
+    "graphicsDriverConfig": "",
+    "dxwrapper": "dxvk",
+    "dxwrapperConfig": "",
+    "audioDriver": "alsa",
+    "audioDriverConfig": "",
+    "wincomponents": "direct3d=1,directsound=1,directmusic=1,directshow=0,directplay=0,xaudio=1,vcrun2005=0,vcrun2010=1,wmdecoder=1",
+    "drives": "D:${DOWNLOADS}E:${INTERNAL_STORAGE}",
+    "hudMode": 0,
+    "startupSelection": 1,
+    "box64Preset": "INTERMEDIATE",
+    "desktopTheme": "LIGHT,IMAGE,#0277bd",
+    "wineVersion": ""
+  }
+}

@@ -105,9 +105,9 @@ public class GuestProgramLauncherComponent extends EnvironmentComponent {
         File shmDir = new File(rootDir, "/tmp/shm");
         if (!shmDir.isDirectory()) shmDir.mkdirs();
 
-        String command = rootDir+"/usr/local/bin/box64 "+guestExecutable;
-
-        return ProcessHelper.exec(command, envVars, rootDir, (status) -> {
+        String[] boxCommand = ProcessHelper.splitCommand(rootDir+"/usr/local/bin/box64 "+guestExecutable);
+        File packageDataDir = rootDir.getParentFile().getParentFile();
+        return ProcessHelper.execWithRootFSDirectoryFd(packageDataDir.getPath(), boxCommand, envVars, rootDir, (status) -> {
             synchronized (lock) {
                 pid = -1;
             }

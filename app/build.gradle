@@ -1,14 +1,173 @@
 apply plugin: 'com.android.application'
 
-android {
+import groovy.json.JsonSlurper
+
+def coreConfigFile = rootProject.file('../../config/win2apk.json')
+if (!coreConfigFile.isFile()) {
+    throw new GradleException("Missing Winlator Core configuration: ${coreConfigFile}")
+}
+
+def coreConfig = new JsonSlurper().parse(coreConfigFile)
+def coreAppName = coreConfig.app.folderName.toString()
+def normalizePackagePart = { String value ->
+    def normalized = value.toLowerCase(Locale.ROOT).replaceAll('[^a-z0-9]+', '')
+    if (normalized.isEmpty()) normalized = 'app'
+    if (normalized ==~ /^[0-9].*/) normalized = 'app' + normalized
+    return normalized
+}
+def coreApplicationId = coreConfig.android.deriveApplicationIdFromFolder
+        ? coreConfig.android.applicationIdBase.toString() + '.' + normalizePackagePart(coreAppName)
+        : coreConfig.android.applicationId.toString()
+def coreLabel = coreConfig.android.labelFromFolder ? coreAppName : coreConfig.android.label.toString()
+def coreRootfsPackageId = (coreConfig.android.rootfsPackageId ?: 'com.winlator').toString()
+def coreRootfsPathAlias = (coreConfig.android.rootfsPathAlias ?: '/proc/self/fd/3').toString()
+def coreRootfsPathPrefix = "/data/data/${coreRootfsPackageId}"
+if (!coreRootfsPathAlias.startsWith('/') || coreRootfsPathAlias.contains(' ') || coreRootfsPathAlias.length() > coreRootfsPathPrefix.length()) {
+    throw new GradleException("rootfsPathAlias must be an absolute path without spaces and no longer than '${coreRootfsPathPrefix}'")
+}
+def coreRootfsAliasBytes = (coreRootfsPathAlias + '/' * (coreRootfsPathPrefix.length() - coreRootfsPathAlias.length())).getBytes('UTF-8')
+def coreAssetFile = file("src/main/assets/${coreConfig.app.asset}")
+if (!coreAssetFile.isFile()) {
+    throw new GradleException("Missing application asset: ${coreAssetFile}")
+}
+
+def coreSourceAssetsDir = file('src/main/assets')
+def coreGeneratedAssetsDir = file("${buildDir}/generated/core-assets")
+def corePathRewriteAssets = (coreConfig.android.pathRewriteAssets ?: []).collect { it.toString() }
+
+def indexOfBytes = { byte[] source, byte[] target, int fromIndex, int endIndex ->
+    if (target.length == 0) return fromIndex
+    int lastStart = endIndex - target.length
+    for (int index = fromIndex; index <= lastStart; index++) {
+        boolean matches = true
+        for (int offset = 0; offset < target.length; offset++) {
+            if (source[index + offset] != target[offset]) {
+                matches = false
+                break
+            }
+        }
+        if (matches) return index
+    }
+    return -1
+}
+
+def rewriteFixedLengthFile = { File source, File target, byte[] oldBytes, byte[] newBytes ->
+    int replacementCount = 0
+    int overlap = oldBytes.length - 1
+    byte[] buffer = new byte[1024 * 1024 + overlap]
+    source.withInputStream { input ->
+        target.withOutputStream { output ->
+            int tailLength = 0
+            int read
+            while ((read = input.read(buffer, tailLength, 1024 * 1024)) > 0) {
+                int total = tailLength + read
+                int safeLength = Math.max(0, total - overlap)
+                int cursor = 0
+                while (cursor < safeLength) {
+                    int match = indexOfBytes(buffer, oldBytes, cursor, safeLength + overlap)
+                    if (match < 0 || match >= safeLength) {
+                        output.write(buffer, cursor, safeLength - cursor)
+                        break
+                    }
+                    output.write(buffer, cursor, match - cursor)
+                    output.write(newBytes)
+                    replacementCount++
+                    cursor = match + oldBytes.length
+                }
+                tailLength = total - safeLength
+                if (tailLength > 0) System.arraycopy(buffer, safeLength, buffer, 0, tailLength)
+            }
+
+            int cursor = 0
+            while (cursor < tailLength) {
+                int match = indexOfBytes(buffer, oldBytes, cursor, tailLength)
+                if (match < 0) {
+                    output.write(buffer, cursor, tailLength - cursor)
+                    break
+                }
+                output.write(buffer, cursor, match - cursor)
+                output.write(newBytes)
+                replacementCount++
+                cursor = match + oldBytes.length
+            }
+        }
+    }
+    return replacementCount
+}
+
+def transformCoreArchive = { File source, File target, byte[] oldBytes, byte[] newBytes ->
+    File tempDir = File.createTempDir('win2apk-asset-', '')
+    File expandedTar = new File(tempDir, 'asset.tar')
+    File rewrittenTar = new File(tempDir, 'asset-rewritten.tar')
+    try {
+        project.exec {
+            commandLine 'zstd', '-q', '-d', '-f', source.absolutePath, '-o', expandedTar.absolutePath
+        }
+        int replacements = rewriteFixedLengthFile(expandedTar, rewrittenTar, oldBytes, newBytes)
+        target.parentFile.mkdirs()
+        project.exec {
+            commandLine 'zstd', '-q', '-T0', '-f', rewrittenTar.absolutePath, '-o', target.absolutePath
+        }
+        logger.lifecycle("Win2APK Core: ${source.name} -> ${target.name} (${replacements} path replacements)")
+    } finally {
+        tempDir.deleteDir()
+    }
+}
+
+def syncCoreConfigAsset = tasks.register('syncCoreConfigAsset', Copy) {
+    from coreConfigFile
+    into file('src/main/assets')
+    rename { 'win2apk.json' }
+}
+
+def prepareCoreAssets = tasks.register('prepareCoreAssets') {
+    inputs.dir(coreSourceAssetsDir)
+    inputs.file(coreConfigFile)
+    inputs.property('rootfsPackageId', coreRootfsPackageId)
+    inputs.property('applicationId', coreApplicationId)
+    outputs.dir(coreGeneratedAssetsDir)
+
+    inputs.property('rootfsPathAlias', coreRootfsPathAlias)
+    dependsOn syncCoreConfigAsset
+    doLast {
+        if (coreGeneratedAssetsDir.exists()) coreGeneratedAssetsDir.deleteDir()
+        coreGeneratedAssetsDir.mkdirs()
+
+        copy {
+            from coreSourceAssetsDir
+            into coreGeneratedAssetsDir
+            exclude corePathRewriteAssets
+        }
+
+        byte[] oldRootfsPathBytes = coreRootfsPathPrefix.getBytes('UTF-8')
+
+        corePathRewriteAssets.each { relativePath ->
+            File source = new File(coreSourceAssetsDir, relativePath)
+            if (!source.isFile()) throw new GradleException("Missing path-rewrite asset: ${source}")
+            File target = new File(coreGeneratedAssetsDir, relativePath)
+            transformCoreArchive(source, target, oldRootfsPathBytes, coreRootfsAliasBytes)
+        }
+    }
+}
+
+project.android {
     compileSdk 34
 
     defaultConfig {
-        applicationId 'com.winlator'
+        applicationId coreApplicationId
         minSdkVersion 26
         targetSdkVersion 28
-        versionCode 28
-        versionName "11.1"
+        versionCode coreConfig.android.versionCode as int
+        versionName coreConfig.android.versionName.toString()
+        manifestPlaceholders = [appLabel: coreLabel]
+
+        externalNativeBuild {
+            cmake {
+                arguments "-DWINLATOR_APP_CACHE_DIR=/data/data/${coreApplicationId}/cache",
+                        "-DWINLATOR_VORTEK_SERVER_PATH=/data/data/${coreApplicationId}/files/rootfs/tmp/.vortek/V0",
+                        "-DWINLATOR_X11_SERVER_PATH=/data/data/${coreApplicationId}/files/rootfs/tmp/.X11-unix/X0"
+            }
+        }
     }
 
     buildTypes {
@@ -26,6 +185,28 @@ android {
         checkReleaseBuilds false
     }
 
+    packagingOptions {
+        pickFirst 'lib/arm64-v8a/libc++_shared.so'
+        pickFirst 'lib/arm64-v8a/libFLAC.so'
+        pickFirst 'lib/arm64-v8a/libfluidsynth.so'
+        pickFirst 'lib/arm64-v8a/libfluidsynth-assetloader.so'
+        pickFirst 'lib/arm64-v8a/libgio-2.0.so'
+        pickFirst 'lib/arm64-v8a/libglib-2.0.so'
+        pickFirst 'lib/arm64-v8a/libgmodule-2.0.so'
+        pickFirst 'lib/arm64-v8a/libgobject-2.0.so'
+        pickFirst 'lib/arm64-v8a/libgthread-2.0.so'
+        pickFirst 'lib/arm64-v8a/libinstpatch-1.0.so'
+        pickFirst 'lib/arm64-v8a/liboboe.so'
+        pickFirst 'lib/arm64-v8a/libogg.so'
+        pickFirst 'lib/arm64-v8a/libopus.so'
+        pickFirst 'lib/arm64-v8a/libpcre.so'
+        pickFirst 'lib/arm64-v8a/libpcreposix.so'
+        pickFirst 'lib/arm64-v8a/libsndfile.so'
+        pickFirst 'lib/arm64-v8a/libvorbis.so'
+        pickFirst 'lib/arm64-v8a/libvorbisenc.so'
+        pickFirst 'lib/arm64-v8a/libvorbisfile.so'
+    }
+
     ndkVersion '24.0.8215888'
 
     externalNativeBuild {
@@ -34,6 +215,12 @@ android {
             path 'src/main/cpp/CMakeLists.txt'
         }
     }
+}
+
+android.sourceSets.main.assets.setSrcDirs([coreGeneratedAssetsDir])
+
+tasks.named('preBuild').configure {
+    dependsOn prepareCoreAssets
 }
 
 dependencies {

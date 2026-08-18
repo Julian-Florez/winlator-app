@@ -2,6 +2,7 @@ package com.winlator.core;
 
 import android.os.Process;
 import android.system.Os;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 
@@ -25,6 +26,7 @@ import java.util.regex.Pattern;
 public abstract class ProcessHelper {
     public enum PState {RUNNING, SLEEPING, WAITING, ZOMBIE, STOPPED, DEAD, OTHER}
     private static final ArrayList<Callback<String>> debugCallbacks = new ArrayList<>();
+    private static boolean logOutput = false;
     private static final byte SIGCONT = 18;
     private static final byte SIGSTOP = 19;
 
@@ -63,10 +65,15 @@ public abstract class ProcessHelper {
     }
 
     public static int exec(String command, EnvVars envVars, File workingDir, Callback<Integer> terminationCallback) {
+        return exec(splitCommand(command), envVars, workingDir, terminationCallback);
+    }
+
+    public static int exec(String[] command, EnvVars envVars, File workingDir, Callback<Integer> terminationCallback) {
         int pid = -1;
         try {
-            ProcessBuilder processBuilder = (new ProcessBuilder(splitCommand(command))).directory(workingDir);
-            if (debugCallbacks.isEmpty()) processBuilder.redirectOutput(new File("/dev/null")).redirectErrorStream(true);
+            Log.i("WinlatorProcess", "Starting: "+String.join(" ", command));
+            ProcessBuilder processBuilder = (new ProcessBuilder(command)).directory(workingDir);
+            if (debugCallbacks.isEmpty() && !logOutput) processBuilder.redirectOutput(new File("/dev/null")).redirectErrorStream(true);
 
             Map<String, String> environment = processBuilder.environment();
             for (String name : envVars) environment.put(name, envVars.get(name));
@@ -77,14 +84,42 @@ public abstract class ProcessHelper {
             pid = pidField.getInt(process);
             pidField.setAccessible(false);
 
-            if (!debugCallbacks.isEmpty()) {
+            if (!debugCallbacks.isEmpty() || logOutput) {
                 createDebugThread(process.getInputStream());
                 createDebugThread(process.getErrorStream());
             }
 
             if (terminationCallback != null) createWaitForThread(process, terminationCallback);
         }
-        catch (Exception e) {}
+        catch (Exception e) {
+            Log.e("WinlatorProcess", "Unable to start: "+String.join(" ", command), e);
+        }
+        return pid;
+    }
+
+    public static int execWithRootFSDirectoryFd(String packageDataDir, String[] command, EnvVars envVars,
+                                                File workingDir, Callback<Integer> terminationCallback) {
+        int pid = -1;
+        try {
+            Log.i("WinlatorProcess", "Starting: "+String.join(" ", command));
+            ProcessBuilder processBuilder = (new ProcessBuilder(command)).directory(workingDir);
+            Map<String, String> environment = processBuilder.environment();
+            if (envVars != null) {
+                for (String name : envVars) environment.put(name, envVars.get(name));
+            }
+
+            String[] environmentArray = new String[environment.size()];
+            int index = 0;
+            for (Map.Entry<String, String> entry : environment.entrySet()) {
+                environmentArray[index++] = entry.getKey()+"="+entry.getValue();
+            }
+
+            pid = RootFSProcess.launch(packageDataDir, command, environmentArray, workingDir.getPath());
+            if (pid > 0 && terminationCallback != null) createWaitForPidThread(pid, terminationCallback);
+        }
+        catch (Exception e) {
+            Log.e("WinlatorProcess", "Unable to start: "+String.join(" ", command), e);
+        }
         return pid;
     }
 
@@ -97,6 +132,7 @@ public abstract class ProcessHelper {
                         if (!debugCallbacks.isEmpty()) {
                             for (Callback<String> callback : debugCallbacks) callback.call(line);
                         }
+                        else if (logOutput) Log.i("WinlatorProcess", line);
                         else if (MainActivity.DEBUG_MODE) System.out.println(line);
                     }
                 }
@@ -109,9 +145,18 @@ public abstract class ProcessHelper {
         Executors.newSingleThreadExecutor().execute(() -> {
             try {
                 int status = process.waitFor();
+                Log.i("WinlatorProcess", "Finished with status "+status);
                 terminationCallback.call(status);
             }
             catch (InterruptedException e) {}
+        });
+    }
+
+    private static void createWaitForPidThread(final int pid, final Callback<Integer> terminationCallback) {
+        Executors.newSingleThreadExecutor().execute(() -> {
+            int status = RootFSProcess.waitFor(pid);
+            Log.i("WinlatorProcess", "Finished with status "+status);
+            terminationCallback.call(status);
         });
     }
 
@@ -119,6 +164,10 @@ public abstract class ProcessHelper {
         synchronized (debugCallbacks) {
             debugCallbacks.clear();
         }
+    }
+
+    public static void setLogOutputEnabled(boolean enabled) {
+        logOutput = enabled;
     }
 
     public static void addDebugCallback(Callback<String> callback) {

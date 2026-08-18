@@ -11,7 +11,10 @@
 #define BITMASK_UNSET(bits, flag) bits &= ~flag
 #define GETEXP(x) (31 - __builtin_clz(x))
 
-#define APP_CACHE_DIR "/data/data/com.winlator/cache"
+#ifndef WINLATOR_APP_CACHE_DIR
+#define WINLATOR_APP_CACHE_DIR "/data/data/com.winlator/cache"
+#endif
+#define APP_CACHE_DIR WINLATOR_APP_CACHE_DIR
 #define LIBVULKAN_PATH "/system/lib64/libvulkan.so"
 
 #define CLOSEFD(x) \

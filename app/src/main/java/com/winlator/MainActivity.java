@@ -2,6 +2,7 @@ package com.winlator;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -25,9 +26,11 @@ import androidx.fragment.app.FragmentManager;
 import androidx.preference.PreferenceManager;
 
 import com.google.android.material.navigation.NavigationView;
+import com.winlator.container.ContainerManager;
 import com.winlator.contentdialog.AboutDialog;
 import com.winlator.core.AppUtils;
 import com.winlator.core.Callback;
+import com.winlator.core.CoreConfig;
 import com.winlator.core.LocaleHelper;
 import com.winlator.core.PreloaderDialog;
 import com.winlator.xenvironment.RootFSInstaller;
@@ -39,6 +42,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     public static final byte OPEN_FILE_REQUEST_CODE = 2;
     public static final byte EDIT_INPUT_CONTROLS_REQUEST_CODE = 3;
     public static final byte OPEN_DIRECTORY_REQUEST_CODE = 4;
+    private static final String DEFAULT_CONTAINER_CREATED = "default_container_created";
     private DrawerLayout drawerLayout;
     public final PreloaderDialog preloaderDialog = new PreloaderDialog(this);
     private boolean editInputControls = false;
@@ -46,11 +50,29 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private Callback<Uri> openFileCallback;
     private SharedPreferences preferences;
     private Fragment currentFragment;
+    private CoreConfig coreConfig;
+    private boolean coreMode;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         AppUtils.setActivityTheme(this);
         super.onCreate(savedInstanceState);
+
+        try {
+            coreConfig = CoreConfig.load(this);
+            coreMode = coreConfig.isCoreMode();
+        }
+        catch (Exception e) {
+            showCoreError("Unable to load win2apk.json: "+e.getMessage());
+            return;
+        }
+
+        if (coreMode) {
+            coreConfig.applyRuntimePreferences(this);
+            initializeCoreMode();
+            return;
+        }
+
         setContentView(R.layout.main_activity);
 
         drawerLayout = findViewById(R.id.DrawerLayout);
@@ -79,7 +101,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             actionBar.setHomeAsUpIndicator(R.drawable.icon_action_bar_menu);
             onNavigationItemSelected(navigationView.getMenu().findItem(menuItemId));
             navigationView.setCheckedItem(menuItemId);
-            if (!requestAppPermissions()) RootFSInstaller.installIfNeeded(this);
+            if (!requestAppPermissions()) RootFSInstaller.installIfNeeded(this, ready -> ensureDefaultContainer(ready));
 
             int containerId = intent.getIntExtra("container_id", 0);
             String startPath = intent.getStringExtra("start_path");
@@ -99,7 +121,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
         if (requestCode == PERMISSION_WRITE_EXTERNAL_STORAGE_REQUEST_CODE) {
             if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                RootFSInstaller.installIfNeeded(this);
+                if (coreMode) RootFSInstaller.installIfNeeded(this, this::onCoreRootFSReady, true);
+                else RootFSInstaller.installIfNeeded(this, ready -> ensureDefaultContainer(ready));
             }
             else finish();
         }
@@ -151,6 +174,76 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         String[] permissions = new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE, Manifest.permission.READ_EXTERNAL_STORAGE};
         ActivityCompat.requestPermissions(this, permissions, PERMISSION_WRITE_EXTERNAL_STORAGE_REQUEST_CODE);
         return true;
+    }
+
+    private void ensureDefaultContainer(boolean rootFsReady) {
+        if (!rootFsReady) return;
+
+        SharedPreferences preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        ContainerManager manager = new ContainerManager(this);
+        if (preferences.getBoolean(DEFAULT_CONTAINER_CREATED, false)) return;
+
+        if (!manager.getContainers().isEmpty()) {
+            preferences.edit().putBoolean(DEFAULT_CONTAINER_CREATED, true).apply();
+            return;
+        }
+
+        preloaderDialog.show(R.string.creating_container);
+        manager.createDefaultContainerAsync((container) -> {
+            preloaderDialog.close();
+            if (container != null) {
+                preferences.edit().putBoolean(DEFAULT_CONTAINER_CREATED, true).apply();
+                if (currentFragment instanceof ContainersFragment) showFragment(new ContainersFragment());
+            }
+        });
+    }
+
+    private void initializeCoreMode() {
+        setContentView(R.layout.core_loading_activity);
+        ((android.widget.TextView)findViewById(R.id.CoreLoadingText)).setText(coreConfig.getLoadingText());
+
+        if (coreConfig.shouldRequestStoragePermission()) {
+            if (!requestAppPermissions()) RootFSInstaller.installIfNeeded(this, this::onCoreRootFSReady, true);
+        }
+        else RootFSInstaller.installIfNeeded(this, this::onCoreRootFSReady, true);
+    }
+
+    private void onCoreRootFSReady(boolean ready) {
+        if (!ready) {
+            showCoreError("Unable to prepare the filesystem.");
+            return;
+        }
+
+        ((android.widget.TextView)findViewById(R.id.CoreLoadingText)).setText(coreConfig.getLoadingText());
+        ContainerManager manager = new ContainerManager(this);
+        manager.createConfiguredContainerAsync(coreConfig, container -> {
+            if (container == null) {
+                showCoreError("Unable to create the configured container or shortcut.");
+                return;
+            }
+
+            if (!coreConfig.isAutoLaunchEnabled()) {
+                showCoreError("Automatic launch is disabled in win2apk.json.");
+                return;
+            }
+
+            Intent intent = new Intent(this, XServerDisplayActivity.class);
+            intent.putExtra("container_id", container.id);
+            intent.putExtra("shortcut_path", coreConfig.getShortcutFile(container).getPath());
+            intent.putExtra("core_mode", true);
+            intent.putExtra("core_close_on_exit", coreConfig.closeCoreWhenApplicationExits());
+            startActivity(intent);
+            finish();
+        });
+    }
+
+    private void showCoreError(String message) {
+        new AlertDialog.Builder(this)
+                .setTitle("Winlator Core error")
+                .setMessage(message != null ? message : "Unknown error")
+                .setCancelable(false)
+                .setPositiveButton(android.R.string.ok, (dialog, which) -> finish())
+                .show();
     }
 
     @Override
