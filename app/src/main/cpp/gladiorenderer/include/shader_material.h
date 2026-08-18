@@ -58,7 +58,7 @@ typedef struct ShaderMaterial {
         int alphaTest;
         int useTexture;
         int texture[MAX_TEXCOORDS];
-        int texEnv[MAX_TEXCOORDS][6];
+        int texEnv[MAX_TEXCOORDS][7];
         int point[7];
         int fog[5];
 
@@ -66,9 +66,6 @@ typedef struct ShaderMaterial {
         int numLights;
 
         int materials[2][4];
-
-        SparseArray programEnv;
-        SparseArray programLocal;
     } location;
 } ShaderMaterial;
 

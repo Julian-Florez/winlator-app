@@ -31,7 +31,7 @@ void gd_handle_glAlphaFunc(GLContext* context) {
 void gd_handle_glArrayElement(GLContext* context) {
     GLint i = ArrayBuffer_getInt(&context->inputBuffer);
 
-    for (int j = 0; j < VERTEX_ATTRIB_COUNT; j++) readVertexArrayElement(context, j, i);
+    for (int j = 0, count = (MIN_VERTEX_ATTRIBS + MAX_TEXCOORDS); j < count; j++) readVertexArrayElement(context, j, i);
 
     GLClientState* clientState = &currentRenderer->clientState;
     if (clientState->vao->attribs[POSITION_ARRAY_INDEX].state) {
@@ -739,13 +739,27 @@ void gd_handle_glDisable(GLContext* context) {
 void gd_handle_glDisableClientState(GLContext* context) {
     GLenum array = ArrayBuffer_getInt(&context->inputBuffer);
 
-    GLVertexArrayObject_setAttribState(&currentRenderer->clientState, array, VERTEX_ATTRIB_DISABLED, false);
+    GLClientState* clientState = &currentRenderer->clientState;
+    if (array == GL_TEXTURE_COORD_ARRAY) {
+        GLVertexArrayObject_setAttribState(clientState, TEXCOORD_ARRAY_INDEX + clientState->activeTexCoord, VERTEX_ATTRIB_DISABLED, false);
+    }
+    else GLVertexArrayObject_setAttribState(clientState, array, VERTEX_ATTRIB_DISABLED, false);
+
+    if (clientState->program || GLRenderer_useARBProgram(currentRenderer, false)) {
+        int index = GLClientState_getArrayIndex(array);
+        if (clientState->program) {
+            index = clientState->program->location.attributes[index];
+        }
+        else index = clientState->arbProgram[0]->material->location.attributes[index];
+        GLRenderer_disableVertexAttribute(currentRenderer, index);
+    }
 }
 
 void gd_handle_glDisableVertexAttribArray(GLContext* context) {
     GLuint index = ArrayBuffer_getInt(&context->inputBuffer);
 
-    GLVertexArrayObject_setAttribState(&currentRenderer->clientState, index, VERTEX_ATTRIB_DISABLED, false);
+    GLClientState* clientState = &currentRenderer->clientState;
+    if (GLRenderer_useARBProgram(currentRenderer, false)) index = clientState->arbProgram[0]->material->location.attributes[index];
     glDisableVertexAttribArray(index);
 }
 
@@ -915,12 +929,28 @@ void gd_handle_glEnable(GLContext* context) {
 void gd_handle_glEnableClientState(GLContext* context) {
     GLenum array = ArrayBuffer_getInt(&context->inputBuffer);
 
-    GLVertexArrayObject_setAttribState(&currentRenderer->clientState, array, VERTEX_ATTRIB_LEGACY_ENABLED, false);
+    GLClientState* clientState = &currentRenderer->clientState;
+    if (GLBuffer_getBound(GL_ARRAY_BUFFER) && (clientState->program || GLRenderer_useARBProgram(currentRenderer, false))) {
+        int index = GLClientState_getArrayIndex(array);
+        if (clientState->program) {
+            index = clientState->program->location.attributes[index];
+        }
+        else index = clientState->arbProgram[0]->material->location.attributes[index];
+        GLRenderer_enableVertexAttribute(currentRenderer, index);
+    }
+    else {
+        if (array == GL_TEXTURE_COORD_ARRAY) {
+            GLVertexArrayObject_setAttribState(clientState, TEXCOORD_ARRAY_INDEX + clientState->activeTexCoord, VERTEX_ATTRIB_LEGACY_ENABLED, false);
+        }
+        else GLVertexArrayObject_setAttribState(clientState, array, VERTEX_ATTRIB_LEGACY_ENABLED, false);
+    }
 }
 
 void gd_handle_glEnableVertexAttribArray(GLContext* context) {
     GLuint index = ArrayBuffer_getInt(&context->inputBuffer);
 
+    GLClientState* clientState = &currentRenderer->clientState;
+    if (GLRenderer_useARBProgram(currentRenderer, false)) index = clientState->arbProgram[0]->material->location.attributes[index];
     glEnableVertexAttribArray(index);
 }
 
@@ -1004,7 +1034,9 @@ void gd_handle_glFenceSync(GLContext* context) {
 }
 
 void gd_handle_glFinish(GLContext* context) {
+#ifndef SKIP_GL_FINISH
     glFinish();
+#endif
 
     gl_send(context->clientRing, REQUEST_CODE_GL_FINISH, NULL, 0);
 }
@@ -2111,7 +2143,16 @@ void gd_handle_glPixelStorei(GLContext* context) {
     GLenum pname = ArrayBuffer_getInt(&context->inputBuffer);
     GLint param = ArrayBuffer_getInt(&context->inputBuffer);
 
-    if (pname != GL_PACK_ALIGNMENT && pname != GL_UNPACK_ALIGNMENT) glPixelStorei(pname, param);
+    if (pname == GL_PACK_ROW_LENGTH ||
+        pname == GL_PACK_SKIP_PIXELS ||
+        pname == GL_PACK_SKIP_ROWS ||
+        pname == GL_UNPACK_ROW_LENGTH ||
+        pname == GL_UNPACK_IMAGE_HEIGHT ||
+        pname == GL_UNPACK_SKIP_PIXELS ||
+        pname == GL_UNPACK_SKIP_ROWS ||
+        pname == GL_UNPACK_SKIP_IMAGES) {
+        glPixelStorei(pname, param);
+    }
 }
 
 void gd_handle_glPixelTransferf(GLContext* context) {
@@ -3265,11 +3306,17 @@ void gd_handle_glVertexAttribPointer(GLContext* context) {
             return;
         }
         else GLVertexArrayObject_setAttribState(clientState, index, VERTEX_ATTRIB_DISABLED, true);
+
+        if (GLRenderer_useARBProgram(currentRenderer, false)) index = clientState->arbProgram[0]->material->location.attributes[index];
     }
     else if (index >= INT32_MAX) {
         int arrayIdx = index - INT32_MAX;
-        ShaderProgram* program = currentRenderer->clientState.program;
-        index = program->location.attributes[arrayIdx];
+        if (clientState->program) {
+            index = clientState->program->location.attributes[arrayIdx];
+        }
+        else if (GLRenderer_useARBProgram(currentRenderer, false)) {
+            index = clientState->arbProgram[0]->material->location.attributes[arrayIdx];
+        }
         GLRenderer_enableVertexAttribute(currentRenderer, index);
 
         GLVertexArrayObject_setAttribState(clientState, arrayIdx, VERTEX_ATTRIB_DISABLED, true);

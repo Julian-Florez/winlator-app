@@ -4,6 +4,10 @@
 #include "gl_context.h"
 #include "gl_renderer.h"
 
+#if DEBUG_MODE
+#include "debug_utils.h"
+#endif
+
 #define GL_VOID 0XFF01
 #define GL_INTERFACE_BLOCK 0XFF02
 
@@ -768,7 +772,6 @@ static char* implicitConvertIntToFloat(ShaderCode* shaderCode, char* line) {
         char* name = subword->word;
         MARK_VARIABLE_NAME(name);
 
-        while (*name == '+' || *name == '-') name++;
         char* operatorAdd = strchr(name, '+');
         if (operatorAdd) operatorAdd[0] = '\0';
         char* operatorSub = strchr(name, '-');
@@ -1834,7 +1837,7 @@ void ShaderConverter_getProgramiv(GLuint target, GLenum pname, GLint* params) {
             break;
         case GL_MAX_PROGRAM_LOCAL_PARAMETERS_ARB:
         case GL_MAX_PROGRAM_ENV_PARAMETERS_ARB:
-            *params = target == GL_VERTEX_PROGRAM_ARB ? 96 : 24;
+            *params = 256;
             break;
         case GL_MAX_PROGRAM_NATIVE_INSTRUCTIONS_ARB:
         case GL_MAX_PROGRAM_INSTRUCTIONS_ARB:
@@ -1846,6 +1849,30 @@ void ShaderConverter_getProgramiv(GLuint target, GLenum pname, GLint* params) {
         case GL_MAX_PROGRAM_PARAMETERS_ARB:
             *params = 64;
             break;
+        case GL_MAX_PROGRAM_NATIVE_ADDRESS_REGISTERS_ARB:
+        case GL_MAX_PROGRAM_ADDRESS_REGISTERS_ARB:
+            *params = 4;
+            break;
+        case GL_MAX_PROGRAM_NATIVE_TEX_INSTRUCTIONS_ARB:
+        case GL_MAX_PROGRAM_TEX_INSTRUCTIONS_ARB:
+            *params = 32;
+            break;
+        case GL_MAX_PROGRAM_NATIVE_ALU_INSTRUCTIONS_ARB:
+        case GL_MAX_PROGRAM_ALU_INSTRUCTIONS_ARB:
+            *params = 1024;
+            break;
+        case GL_MAX_PROGRAM_TEX_INDIRECTIONS_ARB:
+        case GL_MAX_PROGRAM_NATIVE_TEX_INDIRECTIONS_ARB:
+            *params = 8;
+            break;
+        case GL_PROGRAM_FORMAT_ARB:
+            *params = ARBProgram_getBound(target) ? GL_PROGRAM_FORMAT_ASCII_ARB : 0;
+            break;
+        case GL_PROGRAM_BINDING_ARB: {
+            ARBProgram* program = ARBProgram_getBound(target);
+            *params = program ? program->id : 0;
+            break;
+        }
         default:
             println("gladio:getProgramiv: unimplemented pname %x", pname);
             break;
@@ -1853,51 +1880,53 @@ void ShaderConverter_getProgramiv(GLuint target, GLenum pname, GLint* params) {
 }
 
 void ShaderConverter_updateBoundProgram() {
-    if (!currentRenderer->clientState.program) return;
-    ShaderProgram* program = currentRenderer->clientState.program;
-
     GLClientState* clientState = &currentRenderer->clientState;
-    if (program->hasBuiltinColor && !clientState->vao->attribs[COLOR_ARRAY_INDEX].state && program->location.attributes[COLOR_ARRAY_INDEX] != -1) {
-        GLRenderer_disableVertexAttribute(currentRenderer, program->location.attributes[COLOR_ARRAY_INDEX]);
-        glVertexAttrib4fv(program->location.attributes[COLOR_ARRAY_INDEX], currentRenderer->state.color);
-    }
+    if (clientState->program) {
+        ShaderProgram* program = clientState->program;
 
-    if (program->hasBuiltinUniforms) {
-        if (program->location.alphaTest != -1) {
-            glUniform2f(program->location.alphaTest, currentRenderer->state.alphaTest.enabled ? currentRenderer->state.alphaTest.func : GL_ALWAYS, currentRenderer->state.alphaTest.ref);
+        if (program->hasBuiltinColor && !clientState->vao->attribs[COLOR_ARRAY_INDEX].state && program->location.attributes[COLOR_ARRAY_INDEX] != -1) {
+            GLRenderer_disableVertexAttribute(currentRenderer, program->location.attributes[COLOR_ARRAY_INDEX]);
+            glVertexAttrib4fv(program->location.attributes[COLOR_ARRAY_INDEX], currentRenderer->state.color);
         }
 
-        if (program->location.modelViewMatrix != -1) {
-            glUniformMatrix4fv(program->location.modelViewMatrix, 1, GL_FALSE, GLRenderer_getMatrixFromStack(currentRenderer, MODEL_VIEW_MATRIX_INDEX));
-        }
+        if (program->hasBuiltinUniforms) {
+            if (program->location.alphaTest != -1) {
+                glUniform2f(program->location.alphaTest, currentRenderer->state.alphaTest.enabled ? currentRenderer->state.alphaTest.func : GL_ALWAYS, currentRenderer->state.alphaTest.ref);
+            }
 
-        if (program->location.projectionMatrix != -1) {
-            glUniformMatrix4fv(program->location.projectionMatrix, 1, GL_FALSE, GLRenderer_getMatrixFromStack(currentRenderer, PROJECTION_MATRIX_INDEX));
-        }
+            if (program->location.modelViewMatrix != -1) {
+                glUniformMatrix4fv(program->location.modelViewMatrix, 1, GL_FALSE, GLRenderer_getMatrixFromStack(currentRenderer, MODEL_VIEW_MATRIX_INDEX));
+            }
 
-        if (program->location.modelViewProjectionMatrix != -1) {
-            float matrix[16];
-            mat4_multiply(matrix, GLRenderer_getMatrixFromStack(currentRenderer, MODEL_VIEW_MATRIX_INDEX), GLRenderer_getMatrixFromStack(currentRenderer, PROJECTION_MATRIX_INDEX));
-            glUniformMatrix4fv(program->location.modelViewProjectionMatrix, 1, GL_FALSE, matrix);
-        }
+            if (program->location.projectionMatrix != -1) {
+                glUniformMatrix4fv(program->location.projectionMatrix, 1, GL_FALSE, GLRenderer_getMatrixFromStack(currentRenderer, PROJECTION_MATRIX_INDEX));
+            }
 
-        for (int i = 0; i < MAX_TEXCOORDS; i++) {
-            if (program->location.textureMatrix[i] != -1) {
-                float* matrix = GLRenderer_getMatrixFromStack(currentRenderer, TEXTURE_MATRIX_INDEX);
-                glUniformMatrix4fv(program->location.textureMatrix[i], 1, GL_FALSE, matrix);
+            if (program->location.modelViewProjectionMatrix != -1) {
+                float matrix[16];
+                mat4_multiply(matrix, GLRenderer_getMatrixFromStack(currentRenderer, MODEL_VIEW_MATRIX_INDEX), GLRenderer_getMatrixFromStack(currentRenderer, PROJECTION_MATRIX_INDEX));
+                glUniformMatrix4fv(program->location.modelViewProjectionMatrix, 1, GL_FALSE, matrix);
+            }
+
+            for (int i = 0; i < MAX_TEXCOORDS; i++) {
+                if (program->location.textureMatrix[i] != -1) {
+                    float* matrix = GLRenderer_getMatrixFromStack(currentRenderer, TEXTURE_MATRIX_INDEX);
+                    glUniformMatrix4fv(program->location.textureMatrix[i], 1, GL_FALSE, matrix);
+                }
+            }
+
+            if (program->location.fog[0] != -1) {
+                glUniform4fv(program->location.fog[0], 1, currentRenderer->state.fog.color);
+                glUniform1f(program->location.fog[1], currentRenderer->state.fog.density);
+                glUniform1f(program->location.fog[2], currentRenderer->state.fog.start);
+                glUniform1f(program->location.fog[3], currentRenderer->state.fog.end);
+
+                float scale = 1.0f / (currentRenderer->state.fog.end - currentRenderer->state.fog.start);
+                glUniform1f(program->location.fog[4], scale);
             }
         }
-
-        if (program->location.fog[0] != -1) {
-            glUniform4fv(program->location.fog[0], 1, currentRenderer->state.fog.color);
-            glUniform1f(program->location.fog[1], currentRenderer->state.fog.density);
-            glUniform1f(program->location.fog[2], currentRenderer->state.fog.start);
-            glUniform1f(program->location.fog[3], currentRenderer->state.fog.end);
-
-            float scale = 1.0f / (currentRenderer->state.fog.end - currentRenderer->state.fog.start);
-            glUniform1f(program->location.fog[4], scale);
-        }
     }
+    else GLRenderer_useARBProgram(currentRenderer, true);
 }
 
 void ShaderConverter_onDestroy(GLClientState* clientState) {

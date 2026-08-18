@@ -589,9 +589,7 @@ ShaderInspector* ShaderInspector_create(VkContext* context, VkPhysicalDevice phy
     ShaderInspector* shaderInspector = calloc(1, sizeof(ShaderInspector));
     shaderInspector->checkClipDistance = supportedFeatures->shaderClipDistance == VK_FALSE;
 
-    VkPhysicalDeviceProperties deviceProperties = {0};
-    vulkanWrapper.vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
-    bool isMaliDevice = strstr(deviceProperties.deviceName, "Mali") ? true : false;
+    bool isMaliDevice = context->driverID == VK_DRIVER_ID_ARM_PROPRIETARY;
     bool isDXVKEngine = context->engineName ? strcmp(context->engineName, "DXVK") == 0 : false;
 
     if (isMaliDevice) {
@@ -602,7 +600,7 @@ ShaderInspector* ShaderInspector_create(VkContext* context, VkPhysicalDevice phy
     else shaderInspector->convertFormatScaled = true;
 
     shaderInspector->removeImageBoundCheck = isMaliDevice && isDXVKEngine;
-    if (isDXVKEngine) {
+    if (isDXVKEngine && context->engineVersion > MAKE_ENGINE_VERSION(2, 3, 1)) {
         shaderInspector->removePointSizeExport = true;
         shaderInspector->checkInOutVariablesSize = true;
     }

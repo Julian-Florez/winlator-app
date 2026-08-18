@@ -394,10 +394,11 @@ public class InputControlsView extends View {
                     for (byte i = 0, count = (byte)event.getPointerCount(); i < count; i++) {
                         float x = event.getX(i);
                         float y = event.getY(i);
+                        int movePointerId = event.getPointerId(i);
 
                         handled = false;
                         for (ControlElement element : profile.getElements()) {
-                            if (element.handleTouchMove(i, x, y)) handled = true;
+                            if (element.handleTouchMove(movePointerId, x, y)) handled = true;
                         }
                         if (!handled) touchpadView.onTouchEvent(event);
                     }
@@ -485,7 +486,7 @@ public class InputControlsView extends View {
                 mouseMoveOffset.y = isActionDown ? (offset != 0 ? offset : (binding == Binding.MOUSE_MOVE_UP ? -1 : 1)) : 0;
                 if (isActionDown) createMouseMoveTimer();
             }
-            else if (binding.keycode.id >= XKeycode.KEY_CUSTOM_1.id) {
+            else if (binding.keycode.isCustomKey()) {
                 if (!isActionDown) handleCommandKeyEvent(binding);
             }
             else {

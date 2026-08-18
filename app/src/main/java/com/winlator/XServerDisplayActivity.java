@@ -956,7 +956,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             execArgs = shortcut.getExtra("execArgs");
             execArgs = !execArgs.isEmpty() ? " "+execArgs : "";
 
-            if (shortcut.path.endsWith(".lnk") || shortcut.path.contains("://")) {
+            if (shortcut.isLinkPath()) {
                 cmdArgs = "\""+shortcut.path+"\""+execArgs;
             }
             else execPath = shortcut.path;

@@ -121,32 +121,32 @@ static void bindVertexBuffer(GLRenderer* renderer, GLuint bufferId, GLint locati
     glVertexAttribPointer(location, itemSize, GL_FLOAT, GL_FALSE, 0, (void*)0);
 }
 
-static void updateVertexBuffers(GLRenderer* renderer, int* attributeLocations) {
+static void updateVertexBuffers(GLRenderer* renderer, int* attribLocations) {
     Geometry* geometry = &renderer->geometry;
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, renderer->bufferIds[0]);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, geometry->indices.size, geometry->indices.buffer, GL_DYNAMIC_DRAW);
 
-    if (attributeLocations[POSITION_ARRAY_INDEX] != -1) {
-        bindVertexBuffer(renderer, renderer->bufferIds[1], attributeLocations[POSITION_ARRAY_INDEX], 4, geometry->vertices.size, geometry->vertices.buffer);
+    if (attribLocations[POSITION_ARRAY_INDEX] != -1) {
+        bindVertexBuffer(renderer, renderer->bufferIds[1], attribLocations[POSITION_ARRAY_INDEX], 4, geometry->vertices.size, geometry->vertices.buffer);
     }
 
-    if (attributeLocations[COLOR_ARRAY_INDEX] != -1) {
+    if (attribLocations[COLOR_ARRAY_INDEX] != -1) {
         if (geometry->colors.size > 0) {
-            bindVertexBuffer(renderer, renderer->bufferIds[2], attributeLocations[COLOR_ARRAY_INDEX], 4, geometry->colors.size, geometry->colors.buffer);
+            bindVertexBuffer(renderer, renderer->bufferIds[2], attribLocations[COLOR_ARRAY_INDEX], 4, geometry->colors.size, geometry->colors.buffer);
         }
         else {
-            GLRenderer_disableVertexAttribute(renderer, attributeLocations[COLOR_ARRAY_INDEX]);
-            glVertexAttrib4fv(attributeLocations[COLOR_ARRAY_INDEX], renderer->state.color);
+            GLRenderer_disableVertexAttribute(renderer, attribLocations[COLOR_ARRAY_INDEX]);
+            glVertexAttrib4fv(attribLocations[COLOR_ARRAY_INDEX], renderer->state.color);
         }
     }
 
-    if (attributeLocations[NORMAL_ARRAY_INDEX] != -1 && geometry->normals.size > 0) {
-        bindVertexBuffer(renderer, renderer->bufferIds[3], attributeLocations[NORMAL_ARRAY_INDEX], 3, geometry->normals.size, geometry->normals.buffer);
+    if (attribLocations[NORMAL_ARRAY_INDEX] != -1 && geometry->normals.size > 0) {
+        bindVertexBuffer(renderer, renderer->bufferIds[3], attribLocations[NORMAL_ARRAY_INDEX], 3, geometry->normals.size, geometry->normals.buffer);
     }
 
     for (int i = 0, j = TEXCOORD_ARRAY_INDEX; i < MAX_TEXCOORDS; i++, j++) {
-        if (attributeLocations[j] != -1 && geometry->texCoords[i].size > 0) {
-            bindVertexBuffer(renderer, renderer->bufferIds[4+i], attributeLocations[j], 4, geometry->texCoords[i].size, geometry->texCoords[i].buffer);
+        if (attribLocations[j] != -1 && geometry->texCoords[i].size > 0) {
+            bindVertexBuffer(renderer, renderer->bufferIds[j+1], attribLocations[j], 4, geometry->texCoords[i].size, geometry->texCoords[i].buffer);
         }
         geometry->texCoords[i].size = 0;
     }
@@ -209,32 +209,49 @@ static ShaderMaterial* setCurrentMaterial(GLRenderer* renderer, MaterialOptions*
     return material;
 }
 
+bool GLRenderer_useARBProgram(GLRenderer* renderer, bool updateUniforms) {
+    if (!ARBProgram_isActive()) return false;
+    ARBProgram* vertexProgram = renderer->clientState.arbProgram[indexOfGLTarget(GL_VERTEX_PROGRAM_ARB)];
+    ARBProgram* fragmentProgram = renderer->clientState.arbProgram[indexOfGLTarget(GL_FRAGMENT_PROGRAM_ARB)];
+
+    uint8_t numTextures = MAX(vertexProgram->numTextures, fragmentProgram->numTextures);
+    if (!vertexProgram->material) {
+        MaterialOptions options = {false, true, false, false, false, numTextures, vertexProgram, fragmentProgram};
+        vertexProgram->material = setCurrentMaterial(renderer, &options);
+        fragmentProgram->material = vertexProgram->material;
+    }
+    else {
+        glUseProgram(vertexProgram->material->program);
+        if (updateUniforms) {
+            MaterialOptions options = {false, true, false, false, false, numTextures, vertexProgram, fragmentProgram};
+            ShaderMaterial_updateUniforms(vertexProgram->material, renderer, &options);
+        }
+    }
+    return true;
+}
+
 void GLRenderer_drawImmediate(GLRenderer* renderer) {
     if (!renderer || ArrayDeque_isEmpty(&renderer->meshes)) return;
     GLClientState* clientState = &renderer->clientState;
 
     ShaderMaterial* material = NULL;
-    if (!renderer->clientState.program) {
-        ARBProgram* vertexProgram = NULL;
-        ARBProgram* fragmentProgram = NULL;
-        if (renderer->state.enabledARBPrograms[0] || renderer->state.enabledARBPrograms[1]) {
-            vertexProgram = renderer->clientState.arbProgram[indexOfGLTarget(GL_VERTEX_PROGRAM_ARB)];
-            fragmentProgram = renderer->clientState.arbProgram[indexOfGLTarget(GL_FRAGMENT_PROGRAM_ARB)];
-        }
-
+    if (!clientState->program && !ARBProgram_isActive()) {
         uint8_t numTextures = 0;
         for (int i = 0; i < MAX_TEXCOORDS; i++) {
             if (renderer->state.enabledTextures[i][indexOfGLTarget(GL_TEXTURE_2D)]) numTextures++;
         }
 
         bool pointSprite = renderer->state.point.sprite || renderer->state.point.smooth;
-        MaterialOptions options = {renderer->state.lighting, renderer->state.alphaTest.enabled, renderer->state.fog.enabled, pointSprite, true, numTextures, vertexProgram, fragmentProgram};
+        MaterialOptions options = {renderer->state.lighting, renderer->state.alphaTest.enabled, renderer->state.fog.enabled, pointSprite, true, numTextures, NULL, NULL};
         material = setCurrentMaterial(renderer, &options);
         updateVertexBuffers(renderer, material->location.attributes);
     }
     else {
         ShaderConverter_updateBoundProgram();
-        updateVertexBuffers(renderer, renderer->clientState.program->location.attributes);
+        if (clientState->program) {
+            updateVertexBuffers(renderer, clientState->program->location.attributes);
+        }
+        else updateVertexBuffers(renderer, clientState->arbProgram[0]->material->location.attributes);
     }
 
     while (!ArrayDeque_isEmpty(&renderer->meshes)) {
@@ -264,12 +281,12 @@ void GLRenderer_drawImmediate(GLRenderer* renderer) {
     renderer->geometry.vertices.position = 0;
     GLRenderer_disableUnusedVertexAttributes(renderer);
 
-    if (renderer->clientState.program) {
+    if (clientState->program) {
         for (int i = 0; i < VERTEX_ATTRIB_COUNT; i++) {
             if (clientState->vao->attribs[i].boundArrayBuffer > 0) {
                 GLVertexAttrib* vertexAttrib = &clientState->vao->attribs[i];
                 glBindBuffer(GL_ARRAY_BUFFER, clientState->vao->attribs[i].boundArrayBuffer);
-                int location = renderer->clientState.program->location.attributes[i];
+                int location = clientState->program->location.attributes[i];
                 GLRenderer_enableVertexAttribute(renderer, location);
                 glVertexAttribPointer(location, vertexAttrib->size, vertexAttrib->type, vertexAttrib->normalized, vertexAttrib->stride, vertexAttrib->pointer);
             }
@@ -626,6 +643,9 @@ void GLRenderer_setTexEnvParams(GLRenderer* renderer, GLenum target, GLenum pnam
         case GL_OPERAND1_ALPHA:
             texEnv->operandRGBA[3] = (GLenum)params[0];
             break;
+        case GL_TEXTURE_LOD_BIAS:
+            texEnv->lodBias = params[0];
+            break;
         default:
             println("gladio:setTexEnvParams: unimplemented pname %x", pname);
             break;
@@ -842,6 +862,9 @@ int GLRenderer_getParamsv(GLRenderer* renderer, GLenum pname, GLenum type, void*
             break;
         case GL_CLAMP_READ_COLOR:
             if (params) *(GLint*)params = renderer->state.clampReadColor ? GL_TRUE : GL_FALSE;
+            break;
+        case GL_PROGRAM_ERROR_POSITION_ARB:
+            if (params) *(GLint*)params = -1;
             break;
         case GL_POINT_SIZE_RANGE:
             pname = GL_ALIASED_POINT_SIZE_RANGE;

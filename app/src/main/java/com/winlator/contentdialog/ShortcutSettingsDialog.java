@@ -1,6 +1,7 @@
 package com.winlator.contentdialog;
 
 import android.content.Context;
+import android.view.Menu;
 import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
@@ -19,10 +20,14 @@ import com.winlator.core.AppUtils;
 import com.winlator.container.DXWrapperPicker;
 import com.winlator.core.EnvVars;
 import com.winlator.container.GraphicsDriverPicker;
+import com.winlator.core.FileUtils;
 import com.winlator.core.StringUtils;
+import com.winlator.core.WineUtils;
 import com.winlator.inputcontrols.ControlsProfile;
 import com.winlator.inputcontrols.InputControlsManager;
 import com.winlator.widget.EnvVarsView;
+import com.winlator.win32.MSLink;
+import com.winlator.win32.PEParser;
 import com.winlator.winhandler.GamepadHandler;
 
 import java.io.File;
@@ -90,6 +95,27 @@ public class ShortcutSettingsDialog extends ContentDialog {
         final EnvVarsView envVarsView = createEnvVarsTab();
 
         AppUtils.setupTabLayout(getContentView(), R.id.TabLayout, R.id.LLTabWinComponents, R.id.LLTabEnvVars, R.id.LLTabAdvanced);
+
+        findViewById(R.id.BTNameMenu).setOnClickListener((v) -> {
+            File peFile = null;
+            MSLink.LinkInfo linkInfo = MSLink.extractLinkInfo(shortcut.getLinkFile());
+            if (linkInfo != null) peFile = new File(WineUtils.dosToUnixPath(linkInfo.targetPath, shortcut.container));
+            if (peFile == null) return;
+
+            PEParser.FileVersionInfo fileVersionInfo = PEParser.getFileVersionInfo(peFile);
+            if (fileVersionInfo != null && !fileVersionInfo.FileDescription.isEmpty() &&
+                                           !fileVersionInfo.OriginalFilename.isEmpty()) {
+                PopupMenu popupMenu = new PopupMenu(context, v);
+                Menu menu = popupMenu.getMenu();
+                menu.add(fileVersionInfo.FileDescription);
+                menu.add(FileUtils.getBasename(fileVersionInfo.OriginalFilename));
+                popupMenu.setOnMenuItemClickListener((menuItem) -> {
+                    etName.setText(String.valueOf(menuItem.getTitle()));
+                    return true;
+                });
+                popupMenu.show();
+            }
+        });
 
         findViewById(R.id.BTExtraArgsMenu).setOnClickListener((v) -> {
             PopupMenu popupMenu = new PopupMenu(context, v);

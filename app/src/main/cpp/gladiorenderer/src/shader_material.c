@@ -2,6 +2,10 @@
 #include "shader_converter.h"
 #include "gl_renderer.h"
 
+#if DEBUG_MODE
+#include "debug_utils.h"
+#endif
+
 static void setupMaterial(ShaderMaterial* material, MaterialOptions* options) {
     for (int i = 0; i < VERTEX_ATTRIB_COUNT; i++) material->location.attributes[i] = -1;
 
@@ -23,7 +27,7 @@ static void setupMaterial(ShaderMaterial* material, MaterialOptions* options) {
         char uniformName[32];
         material->location.textureMatrix = glGetUniformLocation(material->program, "gd_TextureMatrix");
 
-        const char* texEnvStructNames[] = {"mode", "color", "combineRGBA", "rgbaScale", "sourceRGBA", "operandRGBA"};
+        const char* texEnvStructNames[] = {"mode", "color", "combineRGBA", "rgbaScale", "sourceRGBA", "operandRGBA", "lodBias"};
         for (int i = 0; i < MAX_TEXCOORDS; i++) {
             material->location.texture[i] = -1;
             for (int j = 0; j < ARRAY_SIZE(texEnvStructNames); j++) material->location.texEnv[i][j] = -1;
@@ -39,11 +43,17 @@ static void setupMaterial(ShaderMaterial* material, MaterialOptions* options) {
             }
         }
 
-        for (int i = ARRAY_SIZE(attribNames), j = 0; j < MAX_TEXCOORDS; j++, i++) {
+        for (int i = TEXCOORD_ARRAY_INDEX, j = 0; j < MAX_TEXCOORDS; j++, i++) {
             char attribName[32];
             sprintf(attribName, "gd_MultiTexCoord%d", j);
             material->location.attributes[i] = glGetAttribLocation(material->program, attribName);
         }
+    }
+
+    for (int i = GENERIC_VERTEX_ARRAY_INDEX, j = 0; j < MAX_GENERIC_VERTEX_ATTRIBS; j++, i++) {
+        char attribName[32];
+        sprintf(attribName, "gd_GenericAttrib%d", i);
+        material->location.attributes[i] = glGetAttribLocation(material->program, attribName);
     }
 
     if (options->alphaTest) {
@@ -240,6 +250,7 @@ static const char* getFragmentShaderHead() {
             "vec2 rgbaScale;\n"
             "ivec4 sourceRGBA;\n"
             "ivec4 operandRGBA;\n"
+            "float lodBias;\n"
         "};\n"
 
         "uniform sampler2D gd_Texture;\n"
@@ -269,7 +280,7 @@ static const char* getFragmentShaderHead() {
         "}\n"
 
         "vec4 applyTexEnv(sampler2D sampler, vec4 texCoord, gd_TexEnvParameters texEnv, vec4 fragColor) {\n"
-            "vec4 textureColor = texture(sampler, texCoord.xy / texCoord.w);\n"
+            "vec4 textureColor = texture(sampler, texCoord.xy / texCoord.w, texEnv.lodBias);\n"
             "int modeRGB = texEnv.mode;\n"
             "int modeAlpha = " TEXENV_MODE_MODULATE ";\n"
             "vec4 operand0 = textureColor;\n"
@@ -417,7 +428,22 @@ static char* defineShaderOptions(GLenum type, char* source, MaterialOptions* opt
         else if (type == GL_FRAGMENT_SHADER) {
             ArrayBuffer replaceBufs[4] = {0};
             for (int i = 0; i < options->numTextures; i++) {
-                ArrayBuffer_putString(&replaceBufs[0], "uniform sampler2D gd_Texture%d;\n", i);
+                if (options->fragmentProgram) {
+                    char* samplerType;
+                    switch (options->fragmentProgram->samplerTypes[i]) {
+                        case 3:
+                            samplerType = "sampler3D";
+                            break;
+                        case 4:
+                            samplerType = "samplerCube";
+                            break;
+                        default:
+                            samplerType = "sampler2D";
+                            break;
+                    }
+                    ArrayBuffer_putString(&replaceBufs[0], "uniform %s gd_Texture%d;\n", samplerType, i);
+                }
+                else ArrayBuffer_putString(&replaceBufs[0], "uniform sampler2D gd_Texture%d;\n", i);
                 ArrayBuffer_putString(&replaceBufs[1], "uniform gd_TexEnvParameters gd_TexEnv%d;\n", i);
                 ArrayBuffer_putString(&replaceBufs[2], "in vec4 gd_TexCoord%d;\n", i);
                 ArrayBuffer_putString(&replaceBufs[3], "finalColor = applyTexEnv(gd_Texture%d, gd_TexCoord%d, gd_TexEnv%d, finalColor);\n", i, i, i);
@@ -473,6 +499,7 @@ ShaderMaterial* ShaderMaterial_create(MaterialOptions* options) {
     GLint success;
 
 #if IS_DEBUG_ENABLED(DEBUG_MODE_SHADER_INFO)
+    if (options->vertexProgram) printASMSource(options->vertexProgram->id, options->vertexProgram->asmSource);
     printShaderLines(GL_VERTEX_SHADER, vertexShaderId, generateMaterialHash(options), vertexShader, strlen(vertexShader));
 #endif
 
@@ -489,6 +516,7 @@ ShaderMaterial* ShaderMaterial_create(MaterialOptions* options) {
     glCompileShader(fragmentShaderId);
 
 #if IS_DEBUG_ENABLED(DEBUG_MODE_SHADER_INFO)
+    if (options->fragmentProgram) printASMSource(options->fragmentProgram->id, options->fragmentProgram->asmSource);
     printShaderLines(GL_FRAGMENT_SHADER, fragmentShaderId, generateMaterialHash(options), fragmentShader, strlen(fragmentShader));
 #endif
 
@@ -505,6 +533,14 @@ ShaderMaterial* ShaderMaterial_create(MaterialOptions* options) {
     glAttachShader(program, fragmentShaderId);
     glLinkProgram(program);
 
+    glGetProgramiv(program, GL_LINK_STATUS, &success);
+    if (!success) {
+        GLchar infoLog[512];
+        glGetProgramInfoLog(program, 512, NULL, infoLog);
+        println("gladio: could not link program %d\n%s\n", program, infoLog);
+        exit(1);
+    }
+
     glDeleteShader(vertexShaderId);
     glDeleteShader(fragmentShaderId);
 
@@ -519,9 +555,6 @@ ShaderMaterial* ShaderMaterial_create(MaterialOptions* options) {
 
 void ShaderMaterial_destroy(ShaderMaterial* material) {
     if (!material) return;
-
-    SparseArray_free(&material->location.programEnv, false);
-    SparseArray_free(&material->location.programLocal, false);
     glDeleteProgram(material->program);
 }
 
@@ -557,28 +590,30 @@ static void setMaterialUniforms(GLRenderer* renderer, ShaderMaterial* material) 
 }
 
 static void setARBProgramUniforms(ShaderMaterial* material, ARBProgram* program) {
-    for (int i = 0; i < program->envParams.size; i++) {
-        SparseArray_Entry* entry = &program->envParams.entries[i];
-        void* location = SparseArray_get(&material->location.programEnv, entry->key);
-        if (!location) {
-            char uniformName[32];
-            sprintf(uniformName, "gd_ProgramEnv[%d]", entry->key);
-            location = (void*)(int64_t)glGetUniformLocation(material->program, uniformName);
-            SparseArray_put(&material->location.programEnv, entry->key, location);
-        }
-        glUniform4fv((int64_t)location, 1, entry->value);
-    }
+    const uint8_t typeIdx = indexOfGLTarget(program->type);
 
-    for (int i = 0; i < program->localParams.size; i++) {
-        SparseArray_Entry* entry = &program->localParams.entries[i];
-        void* location = SparseArray_get(&material->location.programLocal, entry->key);
-        if (!location) {
-            char uniformName[32];
-            sprintf(uniformName, "gd_ProgramLocal[%d]", entry->key);
-            location = (void*)(int64_t)glGetUniformLocation(material->program, uniformName);
-            SparseArray_put(&material->location.programLocal, entry->key, location);
+    for (int i = 0, j; i < program->variables.size; i++) {
+        ARBVariable* variable = program->variables.elements[i];
+        if (variable->arraySize > 0) {
+            for (j = 0; j < variable->arraySize; j++) {
+                ARBUniform* uniform = variable->uniforms.elements[j];
+                if (uniform->location == -1) {
+                    char uniformName[64];
+                    sprintf(uniformName, "%s%u[%d]", variable->name, typeIdx, j);
+                    uniform->location = glGetUniformLocation(material->program, uniformName);
+                }
+                glUniform4fv(uniform->location, 1, uniform->value);
+            }
         }
-        glUniform4fv((int64_t)location, 1, entry->value);
+        else {
+            ARBUniform* uniform = variable->uniforms.elements[0];
+            if (uniform->location == -1) {
+                char uniformName[64];
+                sprintf(uniformName, "%s%u", variable->name, typeIdx);
+                uniform->location = glGetUniformLocation(material->program, uniformName);
+            }
+            glUniform4fv(uniform->location, 1, uniform->value);
+        }
     }
 }
 
@@ -610,6 +645,7 @@ void ShaderMaterial_updateUniforms(ShaderMaterial* material, GLRenderer* rendere
                 glUniform2fv(material->location.texEnv[i][3], 1, renderer->state.texEnv[i].rgbaScale);
                 glUniform4iv(material->location.texEnv[i][4], 1, renderer->state.texEnv[i].sourceRGBA);
                 glUniform4iv(material->location.texEnv[i][5], 1, renderer->state.texEnv[i].operandRGBA);
+                glUniform1f(material->location.texEnv[i][6], renderer->state.texEnv[i].lodBias);
             }
         }
     }

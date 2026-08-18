@@ -12,10 +12,8 @@
 #define CLIENT_RING_BUFFER_SIZE 33554432
 #define THREAD_POOL_NUM_THREADS 4
 #define PIXEL_READ_CACHE_SKIP_FRAMES 3
-#ifndef WINLATOR_X11_SERVER_PATH
-#define WINLATOR_X11_SERVER_PATH "/data/data/com.winlator/files/rootfs/tmp/.X11-unix/X0"
-#endif
-#define X11_SERVER_PATH WINLATOR_X11_SERVER_PATH
+#define SKIP_GL_FINISH 1
+#define X11_SERVER_PATH "/data/data/com.winlator/files/rootfs/tmp/.X11-unix/X0"
 
 #define GL_STRING_VERSION "3.3"
 #define GL_STRING_RENDERER "Gladio"
@@ -34,7 +32,9 @@
 #define MAX_BUFFER_TARGETS 6
 #define MAX_ARB_PROGRAM_TARGETS 2
 #define MAX_FB_COLOR_ATTACHMENTS 8
-#define VERTEX_ATTRIB_COUNT (3 + MAX_TEXCOORDS)
+#define MIN_VERTEX_ATTRIBS 3
+#define MAX_GENERIC_VERTEX_ATTRIBS 8
+#define VERTEX_ATTRIB_COUNT (MIN_VERTEX_ATTRIBS + MAX_TEXCOORDS + MAX_GENERIC_VERTEX_ATTRIBS)
 
 #define GL_SEND_CHECKED(requestCode, outputBuffer, bufferSize, ...) \
     do { \
@@ -93,6 +93,7 @@ typedef struct GLClientState GLClientState;
 
 typedef struct GLRenderer GLRenderer;
 typedef struct GLContext GLContext;
+typedef struct ShaderMaterial ShaderMaterial;
 
 typedef struct JMethods {
     JavaVM* jvm;
@@ -251,6 +252,8 @@ static inline int sizeofGLType(GLenum type) {
         case GL_INT:
         case GL_UNSIGNED_INT:
             return sizeof(GLint);
+        case GL_HALF_FLOAT:
+            return sizeof(GLhalf);
         case GL_FLOAT:
             return sizeof(GLfloat);
         case GL_DOUBLE:

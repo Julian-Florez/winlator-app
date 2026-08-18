@@ -68,6 +68,7 @@ typedef struct TexEnv {
     GLfloat rgbaScale[2];
     GLint sourceRGBA[4];
     GLint operandRGBA[4];
+    GLfloat lodBias;
 } TexEnv;
 
 typedef struct PixelReadCache {
@@ -158,6 +159,7 @@ typedef struct GLRenderer {
 } GLRenderer;
 
 extern void GLRenderer_initOnEGLContext(GLRenderer* renderer);
+extern bool GLRenderer_useARBProgram(GLRenderer* renderer, bool updateUniforms);
 extern void GLRenderer_drawImmediate(GLRenderer* renderer);
 extern void GLRenderer_beginImmediate(GLRenderer* renderer, GLenum mode);
 extern void GLRenderer_endImmediate(GLRenderer* renderer);
