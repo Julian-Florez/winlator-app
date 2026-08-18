@@ -135,6 +135,8 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     private int frameRatingWindowId = -1;
     private Win32AppWorkarounds win32AppWorkarounds;
     private String screenEffectProfile;
+    private boolean coreMode;
+    private boolean closeCoreWhenApplicationExits;
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -146,6 +148,9 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
         final PreloaderDialog preloaderDialog = new PreloaderDialog(this);
         preferences = PreferenceManager.getDefaultSharedPreferences(this);
+        coreMode = getIntent().getBooleanExtra("core_mode", false);
+        closeCoreWhenApplicationExits = getIntent().getBooleanExtra("core_close_on_exit", true);
+        ProcessHelper.setLogOutputEnabled(coreMode);
         boolean useAndroidClipboardOnWine = preferences.getBoolean("use_android_clipboard_on_wine", false);
         clipboardManager = useAndroidClipboardOnWine ? (ClipboardManager)getSystemService(CLIPBOARD_SERVICE) : null;
 
@@ -154,6 +159,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
 
         NavigationView navigationView = findViewById(R.id.NavigationView);
+        if (coreMode) navigationView.setVisibility(View.GONE);
         ProcessHelper.removeAllDebugCallbacks();
         boolean enableLogs = preferences.getBoolean("enable_wine_debug", false) || preferences.getInt("box64_logs", 0) >= 1;
         if (enableLogs) ProcessHelper.addDebugCallback(debugDialog = new DebugDialog(this));
@@ -334,6 +340,11 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
     @Override
     public void onBackPressed() {
+        if (coreMode) {
+            finishAndRemoveTask();
+            return;
+        }
+
         if (environment != null) {
             if (!drawerLayout.isDrawerOpen(GravityCompat.START)) {
                 drawerLayout.openDrawer(GravityCompat.START);
@@ -503,6 +514,9 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             if (!envVars.has("WINEESYNC")) envVars.put("WINEESYNC", "1");
 
             guestProgramLauncherComponent.setBox64Preset(shortcut != null ? shortcut.getExtra("box64Preset", container.getBox64Preset()) : container.getBox64Preset());
+            if (coreMode && closeCoreWhenApplicationExits) {
+                guestProgramLauncherComponent.setTerminationCallback(status -> runOnUiThread(this::finishAndRemoveTask));
+            }
         }
 
         environment = new XEnvironment(this, rootFS);
@@ -540,7 +554,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         }
 
         guestProgramLauncherComponent.setEnvVars(envVars);
-        guestProgramLauncherComponent.setTerminationCallback((status) -> exit());
+        if (!coreMode || !closeCoreWhenApplicationExits) guestProgramLauncherComponent.setTerminationCallback((status) -> exit());
         environment.addComponent(guestProgramLauncherComponent);
 
         if (isGenerateWineprefix()) {
