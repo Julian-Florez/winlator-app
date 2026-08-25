@@ -1,0 +1,10 @@
+plugins {
+    id 'com.android.asset-pack'
+}
+
+assetPack {
+    packName = 'cuphead_data_01'
+    dynamicDelivery {
+        deliveryType = 'install-time'
+    }
+}

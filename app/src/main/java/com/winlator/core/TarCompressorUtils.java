@@ -145,7 +145,11 @@ public abstract class TarCompressorUtils {
         }
     }
 
-    private static boolean extract(Type type, InputStream source, File destination, OnExtractFileListener onExtractFileListener) {
+    public static boolean extract(Type type, InputStream source, File destination) {
+        return extract(type, source, destination, null);
+    }
+
+    public static boolean extract(Type type, InputStream source, File destination, OnExtractFileListener onExtractFileListener) {
         if (source == null) return false;
         try (InputStream inStream = getCompressorInputStream(type, source);
              ArchiveInputStream tar = new TarArchiveInputStream(inStream)) {

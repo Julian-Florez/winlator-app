@@ -1,12 +1,22 @@
 {
   "schemaVersion": 1,
   "app": {
-    "folderName": "TestApp",
-    "sourceFolder": "TestApp/publish/win-x64-folder",
-    "asset": "test_app.tzst",
-    "windowsDirectory": "Win2APKTest",
-    "windowsPath": "C:\\Win2APKTest",
-    "executable": "Win2APKTest.exe"
+    "folderName": "Cuphead",
+    "sourceFolder": "N/R (local legal installation configured outside the repository)",
+    "asset": "cuphead.tzst",
+    "assetPackNames": [
+      "cuphead_data_01",
+      "cuphead_data_02",
+      "cuphead_data_03"
+    ],
+    "assetParts": [
+      "cuphead_data_01.part",
+      "cuphead_data_02.part",
+      "cuphead_data_03.part"
+    ],
+    "windowsDirectory": "Cuphead",
+    "windowsPath": "C:\\Cuphead",
+    "executable": "Cuphead.exe"
   },
   "android": {
     "applicationIdBase": "com",
@@ -25,7 +35,7 @@
       "graphics_driver/vortek-2.1.tzst"
     ],
     "labelFromFolder": true,
-    "label": "TestApp",
+    "label": "Cuphead",
     "versionCode": 28,
     "versionName": "11.1-core"
   },
@@ -61,8 +71,8 @@
     "languageIndex": -1
   },
   "shortcut": {
-    "name": "Win2APKTest",
-    "desktopFile": "Win2APKTest.desktop",
+    "name": "Cuphead",
+    "desktopFile": "Cuphead.desktop",
     "execArguments": "",
     "forceFullscreen": false
   },

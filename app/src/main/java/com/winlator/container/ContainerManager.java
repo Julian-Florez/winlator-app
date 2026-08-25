@@ -22,8 +22,12 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.SequenceInputStream;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Vector;
 import java.util.concurrent.Executors;
 
 public class ContainerManager {
@@ -170,7 +174,10 @@ public class ContainerManager {
         File applicationDirectory = config.getApplicationDirectory(container);
         if (!applicationDirectory.isDirectory() && !applicationDirectory.mkdirs()) return false;
 
-        if (!TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, config.getApplicationAsset(), applicationDirectory)) {
+        // Install-time Play Asset Packs are exposed through the application's
+        // AssetManager once the split is installed. The same extraction path
+        // remains usable for the legacy bundled-asset mode.
+        if (!extractConfiguredApplicationAsset(config, applicationDirectory)) {
             return false;
         }
 
@@ -178,6 +185,28 @@ public class ContainerManager {
         File shortcutDirectory = shortcutFile.getParentFile();
         if (shortcutDirectory != null && !shortcutDirectory.isDirectory() && !shortcutDirectory.mkdirs()) return false;
         return FileUtils.writeString(shortcutFile, config.getShortcutContent());
+    }
+
+    private boolean extractConfiguredApplicationAsset(CoreConfig config, File destination) {
+        String[] assetParts = config.getApplicationAssetParts();
+        if (assetParts.length == 1) {
+            return TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, assetParts[0], destination);
+        }
+
+        Vector<InputStream> streams = new Vector<>();
+        try {
+            for (String assetPart : assetParts) streams.add(context.getAssets().open(assetPart));
+            try (InputStream source = new SequenceInputStream(streams.elements())) {
+                return TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, source, destination);
+            }
+        }
+        catch (IOException e) {
+            for (InputStream stream : streams) {
+                try { stream.close(); }
+                catch (IOException ignored) {}
+            }
+            return false;
+        }
     }
 
     public void duplicateContainerAsync(Container container, Runnable callback) {

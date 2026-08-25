@@ -26,8 +26,12 @@ if (!coreRootfsPathAlias.startsWith('/') || coreRootfsPathAlias.contains(' ') ||
     throw new GradleException("rootfsPathAlias must be an absolute path without spaces and no longer than '${coreRootfsPathPrefix}'")
 }
 def coreRootfsAliasBytes = (coreRootfsPathAlias + '/' * (coreRootfsPathPrefix.length() - coreRootfsPathAlias.length())).getBytes('UTF-8')
+def coreAssetPackNames = (coreConfig.app.assetPackNames ?: []).collect { it.toString().trim() }.findAll { !it.isEmpty() }
+if (coreAssetPackNames.isEmpty() && coreConfig.app.assetPackName) {
+    coreAssetPackNames = [coreConfig.app.assetPackName.toString().trim()]
+}
 def coreAssetFile = file("src/main/assets/${coreConfig.app.asset}")
-if (!coreAssetFile.isFile()) {
+if (coreAssetPackNames.isEmpty() && !coreAssetFile.isFile()) {
     throw new GradleException("Missing application asset: ${coreAssetFile}")
 }
 
@@ -170,6 +174,8 @@ project.android {
         }
     }
 
+    assetPacks = coreAssetPackNames.collect { ':' + it }
+
     buildTypes {
         debug {
             minifyEnabled true
@@ -227,6 +233,7 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.4.0'
     implementation 'androidx.preference:preference:1.2.1'
     implementation 'com.google.android.material:material:1.4.0'
+    implementation 'com.google.android.play:asset-delivery:2.3.0'
     implementation 'com.github.luben:zstd-jni:1.5.2-3@aar'
     implementation 'org.tukaani:xz:1.7'
     implementation 'org.apache.commons:commons-compress:1.20'

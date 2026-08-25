@@ -29,6 +29,7 @@ import com.google.android.material.navigation.NavigationView;
 import com.winlator.container.ContainerManager;
 import com.winlator.contentdialog.AboutDialog;
 import com.winlator.core.AppUtils;
+import com.winlator.core.AssetPackDiagnostics;
 import com.winlator.core.Callback;
 import com.winlator.core.CoreConfig;
 import com.winlator.core.LocaleHelper;
@@ -66,6 +67,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             showCoreError("Unable to load win2apk.json: "+e.getMessage());
             return;
         }
+
+        AssetPackDiagnostics.log(this, coreConfig);
 
         if (coreMode) {
             coreConfig.applyRuntimePreferences(this);

@@ -6,5 +6,8 @@
 /.idea/caches
 .DS_Store
 /build
+/cuphead_data_*/src/main/assets/*
+!/cuphead_data_*/src/main/assets/.gitkeep
+/cuphead_data_*/build
 /captures
 .externalNativeBuild

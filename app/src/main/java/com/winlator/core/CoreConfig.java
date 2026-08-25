@@ -14,6 +14,7 @@ import com.winlator.SettingsFragment;
 import com.winlator.widget.InputControlsView;
 
 import org.json.JSONException;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -129,6 +130,31 @@ public final class CoreConfig {
 
     public String getApplicationAsset() {
         return string(appSection(), "asset", "test_app.tzst");
+    }
+
+    public String getApplicationAssetPackName() {
+        return string(appSection(), "assetPackName", "").trim();
+    }
+
+    public String[] getApplicationAssetParts() {
+        JSONArray parts = appSection().optJSONArray("assetParts");
+        if (parts == null || parts.length() == 0) return new String[]{getApplicationAsset()};
+
+        String[] result = new String[parts.length()];
+        for (int i = 0; i < parts.length(); i++) result[i] = parts.optString(i, "");
+        return result;
+    }
+
+    public String[] getApplicationAssetPackNames() {
+        JSONArray packs = appSection().optJSONArray("assetPackNames");
+        if (packs == null || packs.length() == 0) {
+            String legacyPack = getApplicationAssetPackName();
+            return legacyPack.isEmpty() ? new String[0] : new String[]{legacyPack};
+        }
+
+        String[] result = new String[packs.length()];
+        for (int i = 0; i < packs.length(); i++) result[i] = packs.optString(i, "");
+        return result;
     }
 
     public JSONObject createContainerData(Context context) throws JSONException {
