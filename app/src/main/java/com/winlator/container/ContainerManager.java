@@ -3,9 +3,17 @@ package com.winlator.container;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Handler;
+import android.util.Log;
 
 import androidx.preference.PreferenceManager;
 
+import com.google.android.gms.tasks.Tasks;
+import com.google.android.play.core.assetpacks.AssetPackLocation;
+import com.google.android.play.core.assetpacks.AssetPackManager;
+import com.google.android.play.core.assetpacks.AssetPackManagerFactory;
+import com.google.android.play.core.assetpacks.AssetPackState;
+import com.google.android.play.core.assetpacks.AssetPackStates;
+import com.google.android.play.core.assetpacks.model.AssetPackStatus;
 import com.winlator.R;
 import com.winlator.box64.Box64Preset;
 import com.winlator.core.Callback;
@@ -22,15 +30,25 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.SequenceInputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Vector;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 public class ContainerManager {
+    private static final String TAG = "Win2APKAssetPack";
+    private static final long ASSET_PACK_TIMEOUT_MS = TimeUnit.MINUTES.toMillis(45);
+    private static final long ASSET_PACK_POLL_MS = 1000L;
+    private static final String INSTALL_MARKER = ".win2apk-asset-install-complete";
     private static final String TEST_APP_ASSET = "test_app.tzst";
     private static final String TEST_APP_PATH = ".wine/drive_c/Win2APKTest";
     private static final String TEST_APP_NAME = "Win2APKTest";
@@ -174,12 +192,47 @@ public class ContainerManager {
         File applicationDirectory = config.getApplicationDirectory(container);
         if (!applicationDirectory.isDirectory() && !applicationDirectory.mkdirs()) return false;
 
+        File marker = new File(applicationDirectory.getParentFile(), INSTALL_MARKER);
+        if (marker.isFile() && applicationDirectory.isDirectory()) {
+            Log.i(TAG, "application installation already complete; skipping asset extraction");
+            removeConfiguredAssetPacks(config.getApplicationAssetPackNames());
+            cleanupLocalTestingSource();
+
+            File shortcutFile = config.getShortcutFile(container);
+            File shortcutDirectory = shortcutFile.getParentFile();
+            if (shortcutDirectory != null && !shortcutDirectory.isDirectory() && !shortcutDirectory.mkdirs()) return false;
+            return FileUtils.writeString(shortcutFile, config.getShortcutContent());
+        }
+
+        if (!ensureConfiguredAssetPacks(config.getApplicationAssetPackNames())) return false;
+
+        File stagingDirectory = new File(applicationDirectory.getParentFile(), ".win2apk-asset-install-staging");
+        FileUtils.delete(stagingDirectory);
+        if (!stagingDirectory.mkdirs()) return false;
+
         // Install-time Play Asset Packs are exposed through the application's
         // AssetManager once the split is installed. The same extraction path
         // remains usable for the legacy bundled-asset mode.
-        if (!extractConfiguredApplicationAsset(config, applicationDirectory)) {
+        if (!extractConfiguredApplicationAsset(config, stagingDirectory)) {
+            FileUtils.delete(stagingDirectory);
             return false;
         }
+
+        if (applicationDirectory.exists() && !FileUtils.delete(applicationDirectory)) {
+            FileUtils.delete(stagingDirectory);
+            return false;
+        }
+        if (!stagingDirectory.renameTo(applicationDirectory)) {
+            FileUtils.delete(stagingDirectory);
+            return false;
+        }
+
+        File markerTemporary = new File(applicationDirectory.getParentFile(), INSTALL_MARKER + ".tmp");
+        if (!FileUtils.writeString(markerTemporary, "asset-packs-extracted\n")) return false;
+        if (!markerTemporary.renameTo(marker)) return false;
+
+        removeConfiguredAssetPacks(config.getApplicationAssetPackNames());
+        cleanupLocalTestingSource();
 
         File shortcutFile = config.getShortcutFile(container);
         File shortcutDirectory = shortcutFile.getParentFile();
@@ -187,15 +240,116 @@ public class ContainerManager {
         return FileUtils.writeString(shortcutFile, config.getShortcutContent());
     }
 
+    private boolean ensureConfiguredAssetPacks(String[] packNames) {
+        if (packNames.length == 0) return true;
+
+        List<String> names = Arrays.asList(packNames);
+        AssetPackManager manager = AssetPackManagerFactory.getInstance(context);
+        long deadline = System.currentTimeMillis() + ASSET_PACK_TIMEOUT_MS;
+        try {
+            Log.i(TAG, "requesting on-demand asset packs=" + names);
+            Tasks.await(manager.fetch(names), ASSET_PACK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+            while (System.currentTimeMillis() < deadline) {
+                AssetPackStates states = Tasks.await(manager.getPackStates(names), ASSET_PACK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                boolean complete = true;
+                for (String name : names) {
+                    AssetPackState state = states.packStates().get(name);
+                    if (state == null) {
+                        Log.e(TAG, "pack=" + name + " state=null");
+                        return false;
+                    }
+                    Log.i(TAG, "pack=" + name + " status=" + state.status()
+                            + " downloaded=" + state.bytesDownloaded()
+                            + " total=" + state.totalBytesToDownload()
+                            + " error=" + state.errorCode());
+                    if (state.status() == AssetPackStatus.FAILED || state.status() == AssetPackStatus.CANCELED) {
+                        Log.e(TAG, "pack=" + name + " failed with status=" + state.status()
+                                + " error=" + state.errorCode());
+                        return false;
+                    }
+                    if (state.status() != AssetPackStatus.COMPLETED) complete = false;
+                }
+                if (complete) return true;
+                Thread.sleep(ASSET_PACK_POLL_MS);
+            }
+            Log.e(TAG, "timed out waiting for asset packs=" + names);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            Log.e(TAG, "asset pack wait interrupted", e);
+        }
+        catch (ExecutionException | TimeoutException | RuntimeException e) {
+            Log.e(TAG, "asset pack request failed", e);
+        }
+        return false;
+    }
+
+    private void removeConfiguredAssetPacks(String[] packNames) {
+        if (packNames.length == 0) return;
+
+        AssetPackManager manager = AssetPackManagerFactory.getInstance(context);
+        for (String packName : packNames) {
+            try {
+                if (manager.getPackLocation(packName) == null) {
+                    Log.i(TAG, "source asset pack already absent=" + packName);
+                    continue;
+                }
+                Log.i(TAG, "removing source asset pack=" + packName);
+                Tasks.await(manager.removePack(packName), ASSET_PACK_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                Log.i(TAG, "removed source asset pack=" + packName);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                Log.e(TAG, "remove interrupted for pack=" + packName, e);
+                return;
+            }
+            catch (ExecutionException | TimeoutException | RuntimeException e) {
+                Log.e(TAG, "remove failed for pack=" + packName, e);
+            }
+        }
+    }
+
+    /**
+     * bundletool local testing stages source APKs in this app-owned directory.
+     * It is safe to remove only after the extracted application and its marker
+     * have been committed, because the runtime no longer reads those APKs.
+     */
+    private void cleanupLocalTestingSource() {
+        File externalFilesDirectory = context.getExternalFilesDir(null);
+        if (externalFilesDirectory == null) {
+            Log.w(TAG, "local-testing cleanup skipped: external files directory is null");
+            return;
+        }
+
+        File localTestingDirectory = new File(externalFilesDirectory, "local_testing");
+        if (!localTestingDirectory.exists()) {
+            Log.i(TAG, "local-testing source absent: " + localTestingDirectory.getAbsolutePath());
+            return;
+        }
+
+        boolean removed = FileUtils.delete(localTestingDirectory);
+        Log.i(TAG, "local-testing source cleanup path=" + localTestingDirectory.getAbsolutePath()
+                + " removed=" + removed + " existsAfter=" + localTestingDirectory.exists());
+    }
+
     private boolean extractConfiguredApplicationAsset(CoreConfig config, File destination) {
         String[] assetParts = config.getApplicationAssetParts();
+        String[] packNames = config.getApplicationAssetPackNames();
         if (assetParts.length == 1) {
-            return TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, context, assetParts[0], destination);
+            try (InputStream source = openConfiguredAssetPart(assetParts[0], packNames, 0)) {
+                return TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, source, destination);
+            }
+            catch (IOException e) {
+                Log.e(TAG, "unable to open application asset part=" + assetParts[0], e);
+                return false;
+            }
         }
 
         Vector<InputStream> streams = new Vector<>();
         try {
-            for (String assetPart : assetParts) streams.add(context.getAssets().open(assetPart));
+            for (int i = 0; i < assetParts.length; i++) {
+                streams.add(openConfiguredAssetPart(assetParts[i], packNames, i));
+            }
             try (InputStream source = new SequenceInputStream(streams.elements())) {
                 return TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, source, destination);
             }
@@ -207,6 +361,21 @@ public class ContainerManager {
             }
             return false;
         }
+    }
+
+    private InputStream openConfiguredAssetPart(String assetPart, String[] packNames, int partIndex) throws IOException {
+        if (packNames.length > partIndex) {
+            AssetPackManager manager = AssetPackManagerFactory.getInstance(context);
+            AssetPackLocation location = manager.getPackLocation(packNames[partIndex]);
+            if (location != null && location.assetsPath() != null) {
+                File file = new File(location.assetsPath(), assetPart);
+                Log.i(TAG, "opening on-demand asset path=" + file.getAbsolutePath()
+                        + " exists=" + file.isFile() + " size=" + file.length());
+                return new FileInputStream(file);
+            }
+            Log.w(TAG, "on-demand asset location unavailable for pack=" + packNames[partIndex]);
+        }
+        return context.getAssets().open(assetPart);
     }
 
     public void duplicateContainerAsync(Container container, Runnable callback) {
