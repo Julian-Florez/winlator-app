@@ -24,6 +24,8 @@
     "applicationIdBase": "com",
     "applicationId": "com.winlator",
     "deriveApplicationIdFromFolder": true,
+    "iconPath": "assets/icons/cuphead-promo-logo.png",
+    "iconBackgroundColor": "#FFCC16",
     "rootfsPackageId": "com.winlator",
     "rootfsPathAlias": "/proc/self/fd/3",
     "pathRewriteAssets": [
@@ -38,8 +40,8 @@
     ],
     "labelFromFolder": true,
     "label": "Cuphead",
-    "versionCode": 45,
-    "versionName": "11.1-direct-files-auto-gpu-recovery-v15-pixel-bcn-packaged-layer"
+    "versionCode": 48,
+    "versionName": "11.1-direct-files-auto-gpu-recovery-v15-pixel-bcn-legacy-exec-16k-cuphead-core"
   },
   "startup": {
     "coreMode": true,

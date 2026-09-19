@@ -10,5 +10,6 @@
 !/cuphead_data_*/src/main/assets/.gitkeep
 /cuphead_data_*/build
 /cuphead_data/
+/cuphead_files_*/
 /captures
 .externalNativeBuild

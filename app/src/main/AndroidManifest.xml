@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" standalone="no"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.winlator">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-feature
         android:glEsVersion="0x00020000"
         android:required="true" />
@@ -13,10 +13,11 @@
     <uses-permission android:name="android.permission.VIBRATE"/>
 
     <application
-        android:icon="@mipmap/ic_launcher"
+        android:icon="${launcherIcon}"
+        android:roundIcon="${launcherRoundIcon}"
         android:appCategory="game"
         android:isGame="true"
-        android:extractNativeLibs="true"
+        android:pageSizeCompat="enabled"
         android:allowAudioPlaybackCapture="true"
         android:label="${appLabel}">
 

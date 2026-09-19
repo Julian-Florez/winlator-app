@@ -8,6 +8,7 @@ if (!coreConfigFile.isFile()) {
 }
 
 def coreConfig = new JsonSlurper().parse(coreConfigFile)
+def coreRepositoryDir = rootProject.file('../..')
 def coreAppName = coreConfig.app.folderName.toString()
 def normalizePackagePart = { String value ->
     def normalized = value.toLowerCase(Locale.ROOT).replaceAll('[^a-z0-9]+', '')
@@ -38,6 +39,18 @@ if (coreAssetPackNames.isEmpty() && !coreAssetFile.isFile()) {
 def coreSourceAssetsDir = file('src/main/assets')
 def coreGeneratedAssetsDir = file("${buildDir}/generated/core-assets")
 def corePathRewriteAssets = (coreConfig.android.pathRewriteAssets ?: []).collect { it.toString() }
+def iconPathOverride = project.findProperty('win2apkIcon')?.toString()?.trim()
+def configuredIconPath = iconPathOverride ?: (coreConfig.android.iconPath ?: '').toString().trim()
+def coreIconSource = configuredIconPath.isEmpty()
+        ? null
+        : (new File(configuredIconPath).isAbsolute()
+                ? new File(configuredIconPath)
+                : new File(coreRepositoryDir, configuredIconPath))
+def coreIconBackground = (coreConfig.android.iconBackgroundColor ?: '#000000').toString()
+def coreGeneratedIconResDir = file("${buildDir}/generated/launcher-icon-res")
+if (coreIconSource != null && !coreIconSource.isFile()) {
+    throw new GradleException("Configured launcher icon does not exist: ${coreIconSource}")
+}
 
 def indexOfBytes = { byte[] source, byte[] target, int fromIndex, int endIndex ->
     if (target.length == 0) return fromIndex
@@ -154,16 +167,49 @@ def prepareCoreAssets = tasks.register('prepareCoreAssets') {
     }
 }
 
+def prepareLauncherIcon = tasks.register('prepareLauncherIcon') {
+    onlyIf { coreIconSource != null }
+    if (coreIconSource != null) {
+        inputs.file(coreIconSource)
+        inputs.property('iconSource', coreIconSource.absolutePath)
+        inputs.property('backgroundColor', coreIconBackground)
+        outputs.dir(coreGeneratedIconResDir)
+    }
+    doLast {
+        if (coreIconSource == null) return
+        project.exec {
+            commandLine 'python3',
+                    rootProject.file('../../tools/generate_android_icon.py').absolutePath,
+                    '--input', coreIconSource.absolutePath,
+                    '--res-dir', coreGeneratedIconResDir.absolutePath,
+                    '--resource-prefix', 'win2apk_launcher',
+                    '--background-color', coreIconBackground,
+                    '--safe-zone-dp', '66'
+        }
+    }
+}
+
 project.android {
-    compileSdk 34
+    // Keep the Java/Kotlin source namespace stable; the generated package ID
+    // remains configurable through coreApplicationId.
+    namespace 'com.winlator'
+    compileSdk 36
 
     defaultConfig {
         applicationId coreApplicationId
         minSdkVersion 26
+        // Winlator executes Box64/Wine binaries extracted below files/rootfs.
+        // Android's target-29+ SELinux policy denies execute_no_trans for
+        // app_data_file, so keep the legacy target required by this runtime
+        // until the binaries are relocated into an executable APK-owned path.
         targetSdkVersion 28
         versionCode coreConfig.android.versionCode as int
         versionName coreConfig.android.versionName.toString()
-        manifestPlaceholders = [appLabel: coreLabel]
+        manifestPlaceholders = [
+                appLabel: coreLabel,
+                launcherIcon: coreIconSource != null ? '@mipmap/win2apk_launcher' : '@mipmap/ic_launcher',
+                launcherRoundIcon: coreIconSource != null ? '@mipmap/win2apk_launcher_round' : '@mipmap/ic_launcher_round'
+        ]
 
         externalNativeBuild {
             cmake {
@@ -192,6 +238,26 @@ project.android {
     }
 
     packagingOptions {
+        // libadrenotools installs a runtime hook from the extracted native
+        // library directory; keep legacy extraction while the ELF audit is
+        // completed for every prebuilt dependency.
+        jniLibs {
+            useLegacyPackaging true
+            keepDebugSymbols += ['**/*.so']
+        }
+        // The legacy strip phase rewrites 16 KB ELF program headers to 4 KB.
+        // Preserve the headers in the packaged artifact until every native
+        // dependency is rebuilt with the same page-size contract.
+        doNotStrip '**/libfile_redirect_hook.so'
+        doNotStrip '**/libgladiorenderer.so'
+        doNotStrip '**/libgsl_alloc_hook.so'
+        doNotStrip '**/libhook_impl.so'
+        doNotStrip '**/libmain_hook.so'
+        doNotStrip '**/libmidihandler.so'
+        doNotStrip '**/libomp.so'
+        doNotStrip '**/libvirglrenderer.so'
+        doNotStrip '**/libvortekrenderer.so'
+        doNotStrip '**/libwinlator.so'
         doNotStrip '**/libVkLayer_BCN_BCnLayer.so'
         doNotStrip '**/libbcn_layer.so'
         pickFirst 'lib/arm64-v8a/libc++_shared.so'
@@ -215,7 +281,7 @@ project.android {
         pickFirst 'lib/arm64-v8a/libvorbisfile.so'
     }
 
-    ndkVersion '24.0.8215888'
+    ndkVersion '30.0.15729638'
 
     externalNativeBuild {
         cmake {
@@ -226,9 +292,39 @@ project.android {
 }
 
 android.sourceSets.main.assets.setSrcDirs([coreGeneratedAssetsDir])
+android.sourceSets.main.res.srcDir(coreGeneratedIconResDir)
 
 tasks.named('preBuild').configure {
     dependsOn prepareCoreAssets
+    dependsOn prepareLauncherIcon
+}
+
+// AGP's strip task in this legacy project rewrites the p_align field of the
+// CMake outputs from 0x4000 to 0x1000. Restore the exact merged ELF files
+// after stripping so the packaged artifact keeps the linker contract.
+tasks.matching { it.name == 'stripDebugDebugSymbols' }.configureEach {
+    doLast {
+        File mergedNativeLibs = file("${buildDir}/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib")
+        File packagedNativeLibs = file("${buildDir}/intermediates/stripped_native_libs/debug/out/lib")
+        if (!mergedNativeLibs.isDirectory() || !packagedNativeLibs.isDirectory()) {
+            throw new GradleException("16 KB native restore paths are missing: ${mergedNativeLibs} -> ${packagedNativeLibs}")
+        }
+        copy {
+            from mergedNativeLibs
+            into packagedNativeLibs
+            include '**/libfile_redirect_hook.so'
+            include '**/libgladiorenderer.so'
+            include '**/libgsl_alloc_hook.so'
+            include '**/libhook_impl.so'
+            include '**/libmain_hook.so'
+            include '**/libmidihandler.so'
+            include '**/libomp.so'
+            include '**/libvirglrenderer.so'
+            include '**/libvortekrenderer.so'
+            include '**/libwinlator.so'
+        }
+        logger.lifecycle("Win2APK 16 KB: restored merged ELF headers after stripDebugDebugSymbols")
+    }
 }
 
 dependencies {

@@ -1,5 +1,12 @@
 cmake_minimum_required(VERSION 3.22.1)
 
+# Keep every native target produced by this project compatible with Android
+# devices using 16 KB memory pages. Prebuilt JNI libraries are audited
+# separately because linker flags cannot rewrite their ELF program headers.
+add_link_options(
+    "-Wl,-z,max-page-size=16384"
+    "-Wl,-z,common-page-size=16384")
+
 if(NOT DEFINED WINLATOR_APP_CACHE_DIR)
     set(WINLATOR_APP_CACHE_DIR "/data/data/com.winlator/cache")
 endif()
