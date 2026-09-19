@@ -192,6 +192,8 @@ project.android {
     }
 
     packagingOptions {
+        doNotStrip '**/libVkLayer_BCN_BCnLayer.so'
+        doNotStrip '**/libbcn_layer.so'
         pickFirst 'lib/arm64-v8a/libc++_shared.so'
         pickFirst 'lib/arm64-v8a/libFLAC.so'
         pickFirst 'lib/arm64-v8a/libfluidsynth.so'

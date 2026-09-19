@@ -15,6 +15,7 @@ typedef struct VulkanWrapper {
     PFN_vkCreateInstance vkCreateInstance;
     PFN_vkDestroyInstance vkDestroyInstance;
     PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
+    PFN_vkEnumerateInstanceLayerProperties vkEnumerateInstanceLayerProperties;
     PFN_vkGetPhysicalDeviceProperties vkGetPhysicalDeviceProperties;
     PFN_vkGetPhysicalDeviceQueueFamilyProperties vkGetPhysicalDeviceQueueFamilyProperties;
     PFN_vkGetPhysicalDeviceMemoryProperties vkGetPhysicalDeviceMemoryProperties;
@@ -297,6 +298,7 @@ static inline void* findVulkanDeviceFunc(VulkanWrapper* vulkanWrapper, VkDevice 
 static inline void initVulkanWrapper(VulkanWrapper* vulkanWrapper, void* libvulkan) {
     memset(vulkanWrapper, 0, sizeof(VulkanWrapper));
     vulkanWrapper->vkCreateInstance = dlsym(libvulkan, "vkCreateInstance");
+    vulkanWrapper->vkEnumerateInstanceLayerProperties = dlsym(libvulkan, "vkEnumerateInstanceLayerProperties");
     vulkanWrapper->vkEnumerateInstanceVersion = dlsym(libvulkan, "vkEnumerateInstanceVersion");
     vulkanWrapper->vkEnumerateInstanceExtensionProperties = dlsym(libvulkan, "vkEnumerateInstanceExtensionProperties");
     vulkanWrapper->vkGetInstanceProcAddr = dlsym(libvulkan, "vkGetInstanceProcAddr");

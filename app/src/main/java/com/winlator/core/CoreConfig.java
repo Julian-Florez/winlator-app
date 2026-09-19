@@ -157,19 +157,57 @@ public final class CoreConfig {
         return result;
     }
 
+    public boolean isDirectFilesEnabled() {
+        return bool(appSection(), "directFiles", false);
+    }
+
+    public long getDirectFilesExpectedCount() {
+        return appSection().optLong("directFilesExpectedCount", -1L);
+    }
+
+    public long getDirectFilesExpectedBytes() {
+        return appSection().optLong("directFilesExpectedBytes", -1L);
+    }
+
+    public boolean usesAutomaticGraphicsProfile() {
+        JSONObject config = containerSection();
+        return string(config, "graphicsDriver", "auto").equalsIgnoreCase("auto")
+                || string(config, "dxwrapper", Container.DEFAULT_DXWRAPPER).equalsIgnoreCase("auto");
+    }
+
+    public void applyAutomaticGraphicsProfile(Context context, Container container) {
+        if (!usesAutomaticGraphicsProfile() || container == null) return;
+        GraphicsProfileResolver.Profile profile = GraphicsProfileResolver.resolve(context);
+        container.setGraphicsDriver(profile.graphicsDriver);
+        container.setGraphicsDriverConfig(profile.graphicsDriverConfig);
+        container.setDXWrapper(profile.dxwrapper);
+        container.setDXWrapperConfig(profile.dxwrapperConfig);
+        container.setScreenSize(profile.screenSize);
+        container.saveData();
+    }
+
     public JSONObject createContainerData(Context context) throws JSONException {
         JSONObject config = containerSection();
         JSONObject data = new JSONObject();
 
         data.put("name", string(config, "name", "Container-1"));
-        data.put("screenSize", string(config, "screenSize", Container.DEFAULT_SCREEN_SIZE));
         data.put("envVars", string(config, "envVars", Container.DEFAULT_ENV_VARS));
         data.put("cpuList", resolveCPUList(context, string(config, "cpuList", "auto")));
         data.put("cpuListWoW64", resolveCPUList(context, string(config, "cpuListWoW64", "auto")));
-        data.put("graphicsDriver", resolveGraphicsDriver(context, string(config, "graphicsDriver", "auto")));
-        data.put("graphicsDriverConfig", string(config, "graphicsDriverConfig", ""));
-        data.put("dxwrapper", string(config, "dxwrapper", Container.DEFAULT_DXWRAPPER));
-        data.put("dxwrapperConfig", string(config, "dxwrapperConfig", ""));
+        String configuredGraphicsDriver = string(config, "graphicsDriver", "auto");
+        String configuredDXWrapper = string(config, "dxwrapper", Container.DEFAULT_DXWRAPPER);
+        boolean automaticProfile = configuredGraphicsDriver.equalsIgnoreCase("auto")
+                || configuredDXWrapper.equalsIgnoreCase("auto");
+        GraphicsProfileResolver.Profile profile = automaticProfile
+                ? GraphicsProfileResolver.resolve(context) : null;
+        data.put("screenSize", automaticProfile ? profile.screenSize
+                : string(config, "screenSize", Container.DEFAULT_SCREEN_SIZE));
+        data.put("graphicsDriver", automaticProfile ? profile.graphicsDriver : configuredGraphicsDriver);
+        data.put("graphicsDriverConfig", automaticProfile
+                ? profile.graphicsDriverConfig : string(config, "graphicsDriverConfig", ""));
+        data.put("dxwrapper", configuredDXWrapper.equalsIgnoreCase("auto") ? profile.dxwrapper : configuredDXWrapper);
+        data.put("dxwrapperConfig", automaticProfile
+                ? profile.dxwrapperConfig : string(config, "dxwrapperConfig", ""));
         data.put("audioDriver", string(config, "audioDriver", Container.DEFAULT_AUDIO_DRIVER));
         data.put("audioDriverConfig", string(config, "audioDriverConfig", ""));
         data.put("wincomponents", string(config, "wincomponents", Container.DEFAULT_WINCOMPONENTS));
@@ -186,10 +224,6 @@ public final class CoreConfig {
 
     private String resolveCPUList(Context context, String value) {
         return value.equalsIgnoreCase("auto") ? Container.getFallbackCPUList() : value;
-    }
-
-    private String resolveGraphicsDriver(Context context, String value) {
-        return value.equalsIgnoreCase("auto") ? GraphicsDrivers.getDefaultDriver(context) : value;
     }
 
     private String resolveDrives(Context context, String value) {

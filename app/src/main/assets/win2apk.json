@@ -5,15 +5,17 @@
     "sourceFolder": "N/R (local legal installation configured outside the repository)",
     "asset": "cuphead.tzst",
     "assetPackNames": [
-      "cuphead_data_01",
-      "cuphead_data_02",
-      "cuphead_data_03"
+      "cuphead_files_01",
+      "cuphead_files_02",
+      "cuphead_files_03",
+      "cuphead_files_04",
+      "cuphead_files_05"
     ],
-    "assetParts": [
-      "cuphead_data_01.part",
-      "cuphead_data_02.part",
-      "cuphead_data_03.part"
-    ],
+    "assetParts": [],
+    "directFiles": true,
+    "directFilesLinkMode": "move",
+    "directFilesExpectedCount": 815,
+    "directFilesExpectedBytes": 5847372363,
     "windowsDirectory": "Cuphead",
     "windowsPath": "C:\\Cuphead",
     "executable": "Cuphead.exe"
@@ -36,8 +38,8 @@
     ],
     "labelFromFolder": true,
     "label": "Cuphead",
-    "versionCode": 28,
-    "versionName": "11.1-core"
+    "versionCode": 45,
+    "versionName": "11.1-direct-files-auto-gpu-recovery-v15-pixel-bcn-packaged-layer"
   },
   "startup": {
     "coreMode": true,
@@ -83,9 +85,9 @@
     "envVars": "ZINK_DESCRIPTORS=lazy ZINK_DEBUG=compact MESA_SHADER_CACHE_DISABLE=false MESA_SHADER_CACHE_MAX_SIZE=512MB mesa_glthread=true WINEESYNC=1 TU_DEBUG=noconform",
     "cpuList": "auto",
     "cpuListWoW64": "auto",
-    "graphicsDriver": "turnip,gladio",
+    "graphicsDriver": "auto",
     "graphicsDriverConfig": "",
-    "dxwrapper": "dxvk",
+    "dxwrapper": "auto",
     "dxwrapperConfig": "",
     "audioDriver": "alsa",
     "audioDriverConfig": "",

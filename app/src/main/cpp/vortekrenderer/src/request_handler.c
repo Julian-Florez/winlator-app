@@ -4,6 +4,39 @@
 #include "sysvshared_memory.h"
 
 #define MSG_DEBUG_UNIMPLEMENTED_FUNC "%s not implemented yet\n"
+#define BCN_ANDROID_LAYER_NAME "VK_LAYER_BCN_BCnLayer"
+
+static bool isInstanceLayerAvailable(const char* layerName) {
+    if (!vulkanWrapper.vkEnumerateInstanceLayerProperties) return false;
+
+    uint32_t propertyCount = 0;
+    VkResult result = vulkanWrapper.vkEnumerateInstanceLayerProperties(&propertyCount, NULL);
+    if (result != VK_SUCCESS || propertyCount == 0) return false;
+
+    VkLayerProperties* properties = calloc(propertyCount, sizeof(VkLayerProperties));
+    if (!properties) return false;
+
+    result = vulkanWrapper.vkEnumerateInstanceLayerProperties(&propertyCount, properties);
+    bool available = false;
+    if (result == VK_SUCCESS || result == VK_INCOMPLETE) {
+        for (uint32_t i = 0; i < propertyCount; i++) {
+            if (strcmp(properties[i].layerName, layerName) == 0) {
+                available = true;
+                break;
+            }
+        }
+    }
+
+    free(properties);
+    return available;
+}
+
+static bool hasEnabledLayer(const VkInstanceCreateInfo* createInfo, const char* layerName) {
+    for (uint32_t i = 0; i < createInfo->enabledLayerCount; i++) {
+        if (strcmp(createInfo->ppEnabledLayerNames[i], layerName) == 0) return true;
+    }
+    return false;
+}
 
 void vt_handle_vkCreateInstance(VkContext* context) {
     VkInstanceCreateInfo createInfo = {0};
@@ -20,12 +53,28 @@ void vt_handle_vkCreateInstance(VkContext* context) {
     const char* extraExtensions[] = {"VK_KHR_get_physical_device_properties2", "VK_KHR_external_memory_capabilities", "VK_KHR_external_fence_capabilities"};
 #endif
 
+    const char** enabledLayers = NULL;
+    if (!hasEnabledLayer(&createInfo, BCN_ANDROID_LAYER_NAME) &&
+        isInstanceLayerAvailable(BCN_ANDROID_LAYER_NAME)) {
+        enabledLayers = calloc(createInfo.enabledLayerCount + 1, sizeof(char*));
+        if (enabledLayers) {
+            for (uint32_t i = 0; i < createInfo.enabledLayerCount; i++) {
+                enabledLayers[i] = createInfo.ppEnabledLayerNames[i];
+            }
+            enabledLayers[createInfo.enabledLayerCount] = BCN_ANDROID_LAYER_NAME;
+            createInfo.ppEnabledLayerNames = enabledLayers;
+            createInfo.enabledLayerCount++;
+            println("vortek: enabling packaged Vulkan layer %s", BCN_ANDROID_LAYER_NAME);
+        }
+    }
+
     injectExtensions(context, (char***)&createInfo.ppEnabledExtensionNames, &createInfo.enabledExtensionCount,
                      extraExtensions, ARRAY_SIZE(extraExtensions),
                      skipExtensions, ARRAY_SIZE(skipExtensions));
 
     VkInstance instance;
     VkResult result = vulkanWrapper.vkCreateInstance(&createInfo, NULL, &instance);
+    free(enabledLayers);
     if (result == VK_SUCCESS) initVulkanInstance(context, instance, createInfo.pApplicationInfo);
 
     VT_SERIALIZE_CMD(VkInstance, instance);

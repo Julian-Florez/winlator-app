@@ -18,6 +18,7 @@ import com.winlator.R;
 import com.winlator.box64.Box64Preset;
 import com.winlator.core.Callback;
 import com.winlator.core.CoreConfig;
+import com.winlator.core.DirectFilesAssetManager;
 import com.winlator.core.FileUtils;
 import com.winlator.core.TarCompressorUtils;
 import com.winlator.core.WineInfo;
@@ -167,6 +168,9 @@ public class ContainerManager {
             boolean hadContainers = !containers.isEmpty();
             Container container = hadContainers ? containers.get(0) : createConfiguredContainer(config);
             boolean isNewContainer = !hadContainers;
+            if (container != null && !isNewContainer) {
+                config.applyAutomaticGraphicsProfile(context, container);
+            }
             if (container != null && !prepareConfiguredContainer(config, container)) {
                 if (isNewContainer) removeContainer(container);
                 container = null;
@@ -193,18 +197,36 @@ public class ContainerManager {
         if (!applicationDirectory.isDirectory() && !applicationDirectory.mkdirs()) return false;
 
         File marker = new File(applicationDirectory.getParentFile(), INSTALL_MARKER);
-        if (marker.isFile() && applicationDirectory.isDirectory()) {
+        if (config.isDirectFilesEnabled() && DirectFilesAssetManager.hasValidInstallation(config, applicationDirectory)) {
+            Log.i(TAG, "direct-files installation already complete; skipping asset extraction");
+            removeConfiguredAssetPacks(config.getApplicationAssetPackNames());
+            cleanupLocalTestingSource();
+            return writeConfiguredShortcut(config, container);
+        }
+
+        if (config.isDirectFilesEnabled()
+                && DirectFilesAssetManager.adoptExistingInstallation(config, applicationDirectory)) {
+            Log.i(TAG, "adopted existing configured application without copying payload");
+            removeConfiguredAssetPacks(config.getApplicationAssetPackNames());
+            cleanupLocalTestingSource();
+            return writeConfiguredShortcut(config, container);
+        }
+
+        if (!config.isDirectFilesEnabled() && marker.isFile() && applicationDirectory.isDirectory()) {
             Log.i(TAG, "application installation already complete; skipping asset extraction");
             removeConfiguredAssetPacks(config.getApplicationAssetPackNames());
             cleanupLocalTestingSource();
-
-            File shortcutFile = config.getShortcutFile(container);
-            File shortcutDirectory = shortcutFile.getParentFile();
-            if (shortcutDirectory != null && !shortcutDirectory.isDirectory() && !shortcutDirectory.mkdirs()) return false;
-            return FileUtils.writeString(shortcutFile, config.getShortcutContent());
+            return writeConfiguredShortcut(config, container);
         }
 
         if (!ensureConfiguredAssetPacks(config.getApplicationAssetPackNames())) return false;
+
+        if (config.isDirectFilesEnabled()) {
+            if (!DirectFilesAssetManager.moveIntoPlace(context, config, applicationDirectory)) return false;
+            removeConfiguredAssetPacks(config.getApplicationAssetPackNames());
+            cleanupLocalTestingSource();
+            return writeConfiguredShortcut(config, container);
+        }
 
         File stagingDirectory = new File(applicationDirectory.getParentFile(), ".win2apk-asset-install-staging");
         FileUtils.delete(stagingDirectory);
@@ -233,7 +255,10 @@ public class ContainerManager {
 
         removeConfiguredAssetPacks(config.getApplicationAssetPackNames());
         cleanupLocalTestingSource();
+        return writeConfiguredShortcut(config, container);
+    }
 
+    private boolean writeConfiguredShortcut(CoreConfig config, Container container) {
         File shortcutFile = config.getShortcutFile(container);
         File shortcutDirectory = shortcutFile.getParentFile();
         if (shortcutDirectory != null && !shortcutDirectory.isDirectory() && !shortcutDirectory.mkdirs()) return false;

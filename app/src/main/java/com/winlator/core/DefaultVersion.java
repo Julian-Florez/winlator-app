@@ -18,7 +18,13 @@ public abstract class DefaultVersion {
     public static final String CNC_DDRAW = "6.6";
     public static final String SOUNDFONT = "SONiVOX-EAS-GM-Wavetable";
     public static final String MINOR_DXVK = "1.10.3";
+    /** Compatibility build used by the automatic Mali profile. */
+    public static final String MALI_DXVK_COMPAT = "1.7.2";
+    /** DXVK-Sarek is kept as an explicit built-in for non-Adreno Vulkan paths. */
+    public static final String MALI_DXVK_SAREK = "1.12.1-sarek";
+    public static final String MALI_DXVK_STABLE = "1.13.0-sarek";
     public static final String MAJOR_DXVK = "2.4.1";
+    public static final String BCN_LAYER = "leegao-c4755eef";
 
     public static String DXVK() {
         return DXVK(null);

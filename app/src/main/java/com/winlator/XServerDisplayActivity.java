@@ -726,6 +726,9 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         }
         else cacheId += graphicsDriver[0]+"-"+DefaultVersion.valueOf(graphicsDriver[0]);
         cacheId += "-"+graphicsDriver[1]+"-"+DefaultVersion.valueOf(graphicsDriver[1]);
+        if (graphicsDriver[0].equals(GraphicsDrivers.VORTEK)) {
+            cacheId += "-bcn-"+DefaultVersion.BCN_LAYER;
+        }
 
         boolean changed = !cacheId.equals(container.getExtra("graphicsDriver"));
         File rootDir = rootFS.getRootDir();
@@ -735,6 +738,8 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
             FileUtils.delete(new File(libDir, "libvulkan_freedreno.so"));
             FileUtils.delete(new File(libDir, "libvulkan_vortek.so"));
             FileUtils.delete(new File(libDir, "libGL.so.1.7.0"));
+            FileUtils.delete(new File(rootDir, "usr/lib/libbcn_layer.so"));
+            FileUtils.delete(new File(rootDir, "usr/share/vulkan/implicit_layer.d/libbcn_layer.json"));
 
             File vulkanICDDir = new File(rootDir, "/usr/share/vulkan/icd.d");
             FileUtils.delete(vulkanICDDir);
@@ -755,6 +760,15 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         }
         else if (graphicsDriver[0].equals(GraphicsDrivers.VORTEK) && (changed || MainActivity.DEBUG_MODE)) {
             TarCompressorUtils.extract(TarCompressorUtils.Type.ZSTD, this, "graphics_driver/vortek-" + DefaultVersion.VORTEK + ".tzst", rootDir);
+        }
+
+        if (graphicsDriver[0].equals(GraphicsDrivers.VORTEK)) {
+            FileUtils.delete(new File(rootDir, "usr/lib/libbcn_layer.so"));
+            FileUtils.delete(new File(rootDir, "usr/share/vulkan/implicit_layer.d/libbcn_layer.json"));
+            envVars.put("ENABLE_BCN_COMPUTE", "1");
+            envVars.put("BCN_COMPUTE_AUTO", "0");
+            envVars.put("BCN_TRANSCODE_TO_ETC2", "1");
+            envVars.put("BCN_TRANSCODE_TO_ASTC", "0");
         }
 
         switch (graphicsDriver[1]) {
