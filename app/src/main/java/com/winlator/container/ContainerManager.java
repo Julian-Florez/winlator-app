@@ -172,7 +172,9 @@ public class ContainerManager {
                 config.applyAutomaticGraphicsProfile(context, container);
             }
             if (container != null && !prepareConfiguredContainer(config, container)) {
-                if (isNewContainer) removeContainer(container);
+                // Direct-file installation is resumable. Keep a newly created
+                // container so already moved segments survive a process death.
+                if (isNewContainer && !config.isDirectFilesEnabled()) removeContainer(container);
                 container = null;
             }
 

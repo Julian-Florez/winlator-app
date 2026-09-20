@@ -1,9 +1,27 @@
+import groovy.json.JsonSlurper
+
 include ':app'
-include ':cuphead_data_01'
-include ':cuphead_data_02'
-include ':cuphead_data_03'
-include ':cuphead_files_01'
-include ':cuphead_files_02'
-include ':cuphead_files_03'
-include ':cuphead_files_04'
-include ':cuphead_files_05'
+
+def configPath = System.getenv('WIN2APK_CONFIG')?.trim()
+def configFile = configPath ? new File(configPath) : rootProject.file('../../config/win2apk.json')
+if (!configFile.isFile()) {
+    throw new GradleException("Missing Win2APK configuration: ${configFile}")
+}
+def config = new JsonSlurper().parse(configFile)
+def packNames = (config.payload?.assetPackNames ?: config.app?.assetPackNames ?: [])
+        .collect { it.toString().trim() }
+        .findAll { !it.isEmpty() }
+def packsPath = System.getenv('WIN2APK_ASSET_PACKS_DIR')?.trim()
+def packsDirectory = packsPath ? new File(packsPath) : rootProject.projectDir
+
+packNames.each { name ->
+    if (!(name ==~ /^[a-z][a-z0-9_]*$/)) {
+        throw new GradleException("Invalid generated asset-pack module name: ${name}")
+    }
+    File moduleDirectory = new File(packsDirectory, name)
+    if (!new File(moduleDirectory, 'build.gradle').isFile()) {
+        throw new GradleException("Missing generated asset-pack module: ${moduleDirectory}")
+    }
+    include ":${name}"
+    project(":${name}").projectDir = moduleDirectory
+}

@@ -54,6 +54,16 @@ public final class CoreConfig {
         return section("app");
     }
 
+    private JSONObject projectSection() {
+        JSONObject project = section("project");
+        return project.length() > 0 ? project : appSection();
+    }
+
+    private JSONObject payloadSection() {
+        JSONObject payload = section("payload");
+        return payload.length() > 0 ? payload : appSection();
+    }
+
     private JSONObject shortcutSection() {
         return section("shortcut");
     }
@@ -146,7 +156,7 @@ public final class CoreConfig {
     }
 
     public String[] getApplicationAssetPackNames() {
-        JSONArray packs = appSection().optJSONArray("assetPackNames");
+        JSONArray packs = payloadSection().optJSONArray("assetPackNames");
         if (packs == null || packs.length() == 0) {
             String legacyPack = getApplicationAssetPackName();
             return legacyPack.isEmpty() ? new String[0] : new String[]{legacyPack};
@@ -158,15 +168,28 @@ public final class CoreConfig {
     }
 
     public boolean isDirectFilesEnabled() {
-        return bool(appSection(), "directFiles", false);
+        JSONObject payload = payloadSection();
+        return payload.has("mode")
+                ? "move".equalsIgnoreCase(string(payload, "mode", ""))
+                : bool(payload, "directFiles", false);
     }
 
     public long getDirectFilesExpectedCount() {
-        return appSection().optLong("directFilesExpectedCount", -1L);
+        JSONObject payload = payloadSection();
+        return payload.has("expectedFileCount")
+                ? payload.optLong("expectedFileCount", -1L)
+                : payload.optLong("directFilesExpectedCount", -1L);
     }
 
     public long getDirectFilesExpectedBytes() {
-        return appSection().optLong("directFilesExpectedBytes", -1L);
+        JSONObject payload = payloadSection();
+        return payload.has("expectedBytes")
+                ? payload.optLong("expectedBytes", -1L)
+                : payload.optLong("directFilesExpectedBytes", -1L);
+    }
+
+    public String getPayloadManifestAsset() {
+        return string(payloadSection(), "manifestAsset", "payload-manifest.json");
     }
 
     public boolean usesAutomaticGraphicsProfile() {
@@ -232,7 +255,10 @@ public final class CoreConfig {
     }
 
     public File getApplicationDirectory(Container container) {
-        String directory = string(appSection(), "windowsDirectory", "Win2APKTest");
+        JSONObject project = projectSection();
+        String directory = project.has("installDirectory")
+                ? string(project, "installDirectory", "Application")
+                : string(project, "windowsDirectory", "Win2APKTest");
         return new File(container.getRootDir(), ".wine/drive_c/"+directory);
     }
 
@@ -242,11 +268,15 @@ public final class CoreConfig {
     }
 
     public String getShortcutContent() {
-        JSONObject app = appSection();
+        JSONObject project = projectSection();
         JSONObject shortcut = shortcutSection();
-        String name = string(shortcut, "name", string(app, "folderName", "Application"));
-        String windowsPath = string(app, "windowsPath", "C:\\Win2APKTest");
-        String executable = string(app, "executable", "Win2APKTest.exe");
+        String name = string(shortcut, "name", string(project, "name", string(project, "folderName", "Application")));
+        String windowsPath = project.has("installDirectory")
+                ? "C:\\" + string(project, "installDirectory", "Application")
+                : string(project, "windowsPath", "C:\\Win2APKTest");
+        String executable = project.has("entrypoint")
+                ? string(project, "entrypoint", "Application.exe").replace('/', '\\')
+                : string(project, "executable", "Win2APKTest.exe");
         String execPath = windowsPath + "\\" + executable;
         StringBuilder content = new StringBuilder();
         content.append("[Desktop Entry]\n");
