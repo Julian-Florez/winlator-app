@@ -1,56 +1,114 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppThemeBase" parent="@style/Theme.AppCompat.Light.NoActionBar">
+    <style name="AppThemeBase" parent="@style/Theme.Material3.DayNight.NoActionBar">
         <item name="tabSelectedTextColor">?attr/colorPrimaryText</item>
         <item name="tabTextColor">?attr/colorSecondaryText</item>
-        <item name="android:windowBackground">?attr/colorPrimarySurface</item>
-        <item name="android:colorBackground">?attr/colorPrimarySurface</item>
-        <item name="android:textViewStyle">@style/TextView</item>
-        <item name="android:checkboxStyle">@style/CheckBox</item>
+        <item name="android:windowBackground">?attr/colorSurface</item>
+        <item name="android:colorBackground">?attr/colorSurface</item>
+        <item name="android:windowActionModeOverlay">true</item>
         <item name="android:listPopupWindowStyle">@style/ListPopupWindow</item>
         <item name="listPopupWindowStyle">@style/ListPopupWindow</item>
         <item name="android:popupWindowStyle">@style/PopupWindow</item>
         <item name="popupWindowStyle">@style/PopupWindow</item>
         <item name="android:popupMenuStyle">@style/PopupMenu</item>
         <item name="popupMenuStyle">@style/PopupMenu</item>
-        <item name="android:toolbarStyle">@style/Toolbar</item>
         <item name="toolbarStyle">@style/Toolbar</item>
         <item name="android:spinnerDropDownItemStyle">@style/SpinnerDropDownItem</item>
-        <item name="android:navigationBarColor">#000000</item>
-        <item name="android:radioButtonStyle">@style/RadioButton</item>
-        <item name="radioButtonStyle">@style/RadioButton</item>
+        <item name="android:statusBarColor">?attr/colorSurface</item>
+        <item name="android:navigationBarColor">?attr/colorSurface</item>
+        <item name="colorAccent">?attr/colorPrimary</item>
+        <item name="colorPrimaryText">?attr/colorOnSurface</item>
+        <item name="colorSecondaryText">?attr/colorOnSurfaceVariant</item>
+        <item name="colorPrimarySurface">?attr/colorSurface</item>
+        <item name="colorSecondarySurface">?attr/colorSurfaceContainer</item>
+        <item name="colorPrimaryVariant">?attr/colorPrimary</item>
+        <item name="colorSecondaryVariant">?attr/colorSecondaryContainer</item>
+        <item name="colorControlNormal">?attr/colorOnSurfaceVariant</item>
+        <item name="popupMenuBackground">?attr/colorSurfaceContainerHigh</item>
+    </style>
+    <style name="RuntimeMenuItemText" parent="TextAppearance.Material3.LabelLarge">
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">sans</item>
     </style>
     <style name="AppThemeLight" parent="@style/AppThemeBase">
-        <item name="colorAccent">#0288d1</item>
-        <item name="colorPrimary">#607d8b</item>
-        <item name="colorPrimaryDark">#455a64</item>
-        <item name="colorControlNormal">#e0e0e0</item>
-        <item name="colorPrimaryText">#424242</item>
-        <item name="colorSecondaryText">#757575</item>
-        <item name="colorPrimarySurface">#fafafa</item>
-        <item name="colorSecondarySurface">#ffffff</item>
-        <item name="colorPrimaryVariant">#607d8b</item>
-        <item name="colorSecondaryVariant">#d3dce0</item>
-        <item name="colorError">#ef5350</item>
-        <item name="popupMenuBackground">@drawable/content_dialog_background_light</item>
+        <item name="colorPrimary">@color/md_theme_primary</item>
+        <item name="colorOnPrimary">@color/md_theme_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/md_theme_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/md_theme_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/md_theme_secondary</item>
+        <item name="colorOnSecondary">@color/md_theme_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/md_theme_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/md_theme_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/md_theme_tertiary</item>
+        <item name="colorOnTertiary">@color/md_theme_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/md_theme_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/md_theme_onTertiaryContainer</item>
+        <item name="colorError">@color/md_theme_error</item>
+        <item name="colorOnError">@color/md_theme_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_onErrorContainer</item>
+        <item name="android:colorBackground">@color/md_theme_background</item>
+        <item name="colorOnBackground">@color/md_theme_onBackground</item>
+        <item name="colorSurface">@color/md_theme_surface</item>
+        <item name="colorOnSurface">@color/md_theme_onSurface</item>
+        <item name="colorSurfaceVariant">@color/md_theme_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/md_theme_onSurfaceVariant</item>
+        <item name="colorOutline">@color/md_theme_outline</item>
+        <item name="colorOutlineVariant">@color/md_theme_outlineVariant</item>
+        <item name="colorSurfaceDim">@color/md_theme_surfaceDim</item>
+        <item name="colorSurfaceBright">@color/md_theme_surfaceBright</item>
+        <item name="colorSurfaceContainerLowest">@color/md_theme_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/md_theme_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/md_theme_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/md_theme_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/md_theme_surfaceContainerHighest</item>
+        <item name="colorSurfaceInverse">@color/md_theme_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/md_theme_inverseOnSurface</item>
+        <item name="colorPrimaryInverse">@color/md_theme_inversePrimary</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
         <item name="toolboxBackground">@drawable/toolbox_light</item>
         <item name="panelBackground">@drawable/panel_background_light</item>
         <item name="preloaderBackground">@drawable/preloader_background_light</item>
         <item name="progressBarIndeterminateImage">@drawable/progress_bar_indeterminate_light</item>
     </style>
     <style name="AppThemeDark" parent="@style/AppThemeBase">
-        <item name="colorAccent">#0288d1</item>
-        <item name="colorPrimary">#505963</item>
-        <item name="colorPrimaryDark">#3f474f</item>
-        <item name="colorControlNormal">#616161</item>
-        <item name="colorPrimaryText">#fafafa</item>
-        <item name="colorSecondaryText">#9e9e9e</item>
-        <item name="colorPrimarySurface">#1b1e21</item>
-        <item name="colorSecondarySurface">#2d3238</item>
-        <item name="colorPrimaryVariant">#56677a</item>
-        <item name="colorSecondaryVariant">#37424f</item>
-        <item name="colorError">#ef5350</item>
-        <item name="popupMenuBackground">@drawable/content_dialog_background_dark</item>
+        <item name="colorPrimary">@color/md_theme_dark_primary</item>
+        <item name="colorOnPrimary">@color/md_theme_dark_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/md_theme_dark_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/md_theme_dark_onPrimaryContainer</item>
+        <item name="colorSecondary">@color/md_theme_dark_secondary</item>
+        <item name="colorOnSecondary">@color/md_theme_dark_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/md_theme_dark_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/md_theme_dark_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/md_theme_dark_tertiary</item>
+        <item name="colorOnTertiary">@color/md_theme_dark_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/md_theme_dark_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/md_theme_dark_onTertiaryContainer</item>
+        <item name="colorError">@color/md_theme_dark_error</item>
+        <item name="colorOnError">@color/md_theme_dark_onError</item>
+        <item name="colorErrorContainer">@color/md_theme_dark_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/md_theme_dark_onErrorContainer</item>
+        <item name="android:colorBackground">@color/md_theme_dark_background</item>
+        <item name="colorOnBackground">@color/md_theme_dark_onBackground</item>
+        <item name="colorSurface">@color/md_theme_dark_surface</item>
+        <item name="colorOnSurface">@color/md_theme_dark_onSurface</item>
+        <item name="colorSurfaceVariant">@color/md_theme_dark_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/md_theme_dark_onSurfaceVariant</item>
+        <item name="colorOutline">@color/md_theme_dark_outline</item>
+        <item name="colorOutlineVariant">@color/md_theme_dark_outlineVariant</item>
+        <item name="colorSurfaceDim">@color/md_theme_dark_surfaceDim</item>
+        <item name="colorSurfaceBright">@color/md_theme_dark_surfaceBright</item>
+        <item name="colorSurfaceContainerLowest">@color/md_theme_dark_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/md_theme_dark_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/md_theme_dark_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/md_theme_dark_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/md_theme_dark_surfaceContainerHighest</item>
+        <item name="colorSurfaceInverse">@color/md_theme_dark_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/md_theme_dark_inverseOnSurface</item>
+        <item name="colorPrimaryInverse">@color/md_theme_dark_inversePrimary</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
         <item name="toolboxBackground">@drawable/toolbox_dark</item>
         <item name="panelBackground">@drawable/panel_background_dark</item>
         <item name="preloaderBackground">@drawable/preloader_background_dark</item>
@@ -68,7 +126,7 @@
     </style>
     <style name="ComboBox">
         <item name="android:layout_width">192dp</item>
-        <item name="android:layout_height">42dp</item>
+        <item name="android:layout_height">48dp</item>
         <item name="android:focusable">true</item>
         <item name="android:clickable">true</item>
         <item name="android:textSize">16sp</item>
@@ -86,7 +144,7 @@
     </style>
     <style name="MultiSelectionComboBox">
         <item name="android:layout_width">192dp</item>
-        <item name="android:layout_height">42dp</item>
+        <item name="android:layout_height">48dp</item>
         <item name="android:focusable">true</item>
         <item name="android:clickable">true</item>
         <item name="android:textSize">16sp</item>
@@ -120,7 +178,7 @@
     </style>
     <style name="EditText">
         <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">42dp</item>
+        <item name="android:layout_height">48dp</item>
         <item name="android:textSize">16sp</item>
         <item name="android:textColor">?attr/colorPrimaryText</item>
         <item name="android:textColorHint">?attr/colorSecondaryText</item>
@@ -151,14 +209,14 @@
         <item name="android:textStyle">bold</item>
         <item name="android:textColor">?attr/colorPrimaryText</item>
     </style>
-    <style name="Toolbar" parent="@android:style/Widget.Toolbar">
-        <item name="android:background">?attr/colorPrimary</item>
-        <item name="titleTextColor">#ffffff</item>
+    <style name="Toolbar" parent="@style/Widget.Material3.Toolbar">
+        <item name="android:background">?attr/colorSurfaceContainer</item>
+        <item name="titleTextColor">?attr/colorOnSurface</item>
         <item name="titleTextAppearance">@style/TitleTextAppearance</item>
     </style>
     <style name="BaseButton">
         <item name="android:layout_width">wrap_content</item>
-        <item name="android:layout_height">42dp</item>
+        <item name="android:layout_height">48dp</item>
         <item name="android:focusable">true</item>
         <item name="android:clickable">true</item>
         <item name="android:textSize">16sp</item>
@@ -177,8 +235,8 @@
         <item name="android:textColor">#ffffff</item>
     </style>
     <style name="BaseImageButton">
-        <item name="android:layout_width">42dp</item>
-        <item name="android:layout_height">42dp</item>
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
         <item name="android:focusable">true</item>
         <item name="android:clickable">true</item>
         <item name="android:gravity">center</item>
@@ -192,8 +250,8 @@
         <item name="android:tint">?attr/colorPrimaryVariant</item>
     </style>
     <style name="ListMenuButton" parent="BaseImageButton">
-        <item name="android:layout_width">34dp</item>
-        <item name="android:layout_height">34dp</item>
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
         <item name="android:tint">?attr/colorPrimaryVariant</item>
         <item name="android:layout_marginLeft">2dp</item>
         <item name="android:layout_marginRight">2dp</item>
@@ -266,8 +324,8 @@
         <item name="android:background">?attr/colorControlNormal</item>
     </style>
     <style name="HelpButton">
-        <item name="android:layout_width">22dp</item>
-        <item name="android:layout_height">22dp</item>
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
         <item name="android:layout_marginLeft">4dp</item>
         <item name="android:src">@drawable/icon_help</item>
         <item name="tint">#e0e0e0</item>
@@ -284,15 +342,15 @@
         <item name="android:paddingRight">8dp</item>
     </style>
     <style name="LeftSideButton">
-        <item name="android:layout_width">40dp</item>
-        <item name="android:layout_height">36dp</item>
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
         <item name="tint">?attr/colorPrimaryVariant</item>
         <item name="android:background">@drawable/left_side_button</item>
         <item name="android:padding">6dp</item>
     </style>
     <style name="RightSideButton">
-        <item name="android:layout_width">40dp</item>
-        <item name="android:layout_height">36dp</item>
+        <item name="android:layout_width">48dp</item>
+        <item name="android:layout_height">48dp</item>
         <item name="tint">?attr/colorPrimaryVariant</item>
         <item name="android:background">@drawable/right_side_button</item>
         <item name="android:padding">6dp</item>

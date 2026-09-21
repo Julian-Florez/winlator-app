@@ -14,11 +14,9 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.ActionBar;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
 import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentActivity;
 import androidx.preference.PreferenceManager;
-import androidx.recyclerview.widget.DividerItemDecoration;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
@@ -28,7 +26,6 @@ import com.winlator.container.ContainerManager;
 import com.winlator.core.AppUtils;
 import com.winlator.core.FileUtils;
 import com.winlator.core.PreloaderDialog;
-import com.winlator.core.UnitUtils;
 
 import java.io.File;
 import java.util.Stack;
@@ -42,7 +39,6 @@ public abstract class BaseFileManagerFragment<T> extends Fragment {
     protected FloatingActionButton pasteButton;
     protected ViewStyle viewStyle = ViewStyle.GRID;
     protected boolean viewStyleNeedsUpdate = true;
-    protected DividerItemDecoration itemDecoration;
     protected SharedPreferences preferences;
     protected Clipboard clipboard;
     protected ContainerManager manager;
@@ -79,12 +75,6 @@ public abstract class BaseFileManagerFragment<T> extends Fragment {
 
         pasteButton = rootView.findViewById(R.id.BTPaste);
         pasteButton.setOnClickListener((v) -> pasteFiles());
-
-        if (itemDecoration == null) {
-            Context context = getContext();
-            itemDecoration = new DividerItemDecoration(context, DividerItemDecoration.VERTICAL);
-            itemDecoration.setDrawable(ContextCompat.getDrawable(context, R.drawable.list_item_divider));
-        }
         return rootView;
     }
 
@@ -136,15 +126,14 @@ public abstract class BaseFileManagerFragment<T> extends Fragment {
     }
 
     public void refreshContent() {
+        ((MainActivity)requireActivity()).updateNavigationIcon(!folderStack.isEmpty());
         if (viewStyleNeedsUpdate) {
             Context context = getContext();
-            recyclerView.removeItemDecoration(itemDecoration);
             if (viewStyle == ViewStyle.LIST) {
                 recyclerView.setLayoutManager(new LinearLayoutManager(context));
-                recyclerView.addItemDecoration(itemDecoration);
             }
             else if (viewStyle == ViewStyle.GRID) {
-                int spanCount = Math.max(2, (int)(AppUtils.getScreenWidth() / UnitUtils.dpToPx(200)));
+                int spanCount = getResources().getInteger(R.integer.file_grid_span_count);
                 recyclerView.setLayoutManager(new GridLayoutManager(context, spanCount));
             }
             viewStyleNeedsUpdate = false;

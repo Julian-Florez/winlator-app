@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <bool name="use_permanent_navigation">false</bool>
+    <dimen name="navigation_panel_width">304dp</dimen>
+    <dimen name="main_content_start_margin">0dp</dimen>
+    <dimen name="list_horizontal_padding">8dp</dimen>
+    <integer name="container_list_span_count">1</integer>
+    <integer name="file_grid_span_count">2</integer>
+</resources>

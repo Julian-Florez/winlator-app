@@ -33,6 +33,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.preference.PreferenceManager;
 
+import com.google.android.material.color.DynamicColors;
 import com.google.android.material.tabs.TabLayout;
 import com.winlator.R;
 import com.winlator.SettingsFragment;
@@ -384,5 +385,6 @@ public abstract class AppUtils {
         else if (appTheme == SettingsFragment.APP_THEME_DARK) {
             activity.setTheme(R.style.AppThemeDark);
         }
+        DynamicColors.applyToActivityIfAvailable(activity);
     }
 }

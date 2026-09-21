@@ -38,12 +38,12 @@
             android:supportsPictureInPicture="true"
             android:launchMode="singleTask"
             android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|density|navigation"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="sensor" />
 
         <activity android:name="com.winlator.ControlsEditorActivity"
             android:exported="false"
             android:theme="@style/AppThemeFullscreenDark"
-            android:screenOrientation="sensorLandscape" />
+            android:screenOrientation="sensor" />
 
         <activity android:name="com.winlator.ExternalControllerBindingsActivity"
             android:theme="@style/AppThemeDark"

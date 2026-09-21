@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <dimen name="dialog_window_margin">24dp</dimen>
+    <dimen name="dialog_max_width">560dp</dimen>
+    <dimen name="dialog_min_body_height">48dp</dimen>
+    <dimen name="dialog_content_padding">24dp</dimen>
+    <dimen name="dialog_action_padding">16dp</dimen>
+    <dimen name="dialog_section_spacing">16dp</dimen>
+    <dimen name="dialog_action_spacing">8dp</dimen>
+    <dimen name="dialog_min_touch_target">48dp</dimen>
+    <dimen name="dialog_corner_radius">28dp</dimen>
+    <dimen name="dialog_elevation">6dp</dimen>
+</resources>

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="runtime_menu">Runtime menu</string>
+    <string name="move_controls_toolbar">Move controls toolbar</string>
+    <string name="add_control_element">Add on-screen control</string>
+    <string name="remove_control_element">Remove selected on-screen control</string>
+    <string name="control_element_settings">Selected control settings</string>
+    <string name="remove_controller_binding">Remove controller binding %1$s</string>
+    <string name="seekbar_value">Value %1$s</string>
+    <string name="selected_color">Selected color %1$s</string>
+    <string name="color_swatch">Color %1$s</string>
+    <string name="windows_touchpad">Windows touchpad</string>
+    <string name="control_unassigned">unassigned</string>
+    <string name="control_button">button</string>
+    <string name="control_dpad">directional pad</string>
+    <string name="control_trackpad">trackpad</string>
+    <string name="control_stick">stick</string>
+    <string name="control_range">range control</string>
+    <string name="control_midi_key">MIDI key</string>
+    <string name="control_radial_menu">radial menu</string>
+    <string name="on_screen_control_description">%1$s: %2$s</string>
+</resources>

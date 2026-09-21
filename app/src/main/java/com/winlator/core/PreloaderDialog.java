@@ -22,7 +22,7 @@ public class PreloaderDialog {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setCancelable(false);
         dialog.setCanceledOnTouchOutside(false);
-        dialog.setContentView(R.layout.preloader_dialog);
+        dialog.setContentView(R.layout.loading_screen);
 
         Window window = dialog.getWindow();
         if (window != null) {
@@ -35,7 +35,7 @@ public class PreloaderDialog {
         if (isShowing()) return;
         close();
         if (dialog == null) create();
-        ((TextView)dialog.findViewById(R.id.TextView)).setText(textResId);
+        ((TextView)dialog.findViewById(R.id.LoadingText)).setText(R.string.loading_status);
         dialog.show();
     }
 

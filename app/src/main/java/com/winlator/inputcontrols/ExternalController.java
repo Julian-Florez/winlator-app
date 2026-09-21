@@ -275,6 +275,13 @@ public class ExternalController implements GamepadSlot {
                (sources & InputDevice.SOURCE_JOYSTICK) == InputDevice.SOURCE_JOYSTICK);
     }
 
+    public static boolean hasConnectedController() {
+        for (int deviceId : InputDevice.getDeviceIds()) {
+            if (isGameController(InputDevice.getDevice(deviceId))) return true;
+        }
+        return false;
+    }
+
     public static float getCenteredAxis(MotionEvent event, int axis, int historyPos) {
         if (axis == MotionEvent.AXIS_HAT_X || axis == MotionEvent.AXIS_HAT_Y) {
             float value = event.getAxisValue(axis);

@@ -250,4 +250,12 @@ public class InputControlsManager {
         for (ControlsProfile profile : getProfiles()) if (profile.id == id) return profile;
         return null;
     }
+
+    public ControlsProfile getProfileByName(String name) {
+        if (name == null || name.trim().isEmpty()) return null;
+        for (ControlsProfile profile : getProfiles(true)) {
+            if (name.equalsIgnoreCase(profile.getName())) return profile;
+        }
+        return null;
+    }
 }

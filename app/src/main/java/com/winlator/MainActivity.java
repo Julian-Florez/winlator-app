@@ -2,7 +2,6 @@ package com.winlator;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -26,6 +25,7 @@ import androidx.fragment.app.FragmentManager;
 import androidx.preference.PreferenceManager;
 
 import com.google.android.material.navigation.NavigationView;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.winlator.container.ContainerManager;
 import com.winlator.contentdialog.AboutDialog;
 import com.winlator.core.AppUtils;
@@ -53,25 +53,31 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private Fragment currentFragment;
     private CoreConfig coreConfig;
     private boolean coreMode;
+    private boolean permanentNavigation;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
-        AppUtils.setActivityTheme(this);
-        super.onCreate(savedInstanceState);
-
+        Exception coreConfigError = null;
         try {
             coreConfig = CoreConfig.load(this);
             coreMode = coreConfig.isCoreMode();
+            if (coreMode) coreConfig.applyRuntimePreferences(this);
         }
         catch (Exception e) {
-            showCoreError("Unable to load win2apk.json: "+e.getMessage());
+            coreConfigError = e;
+        }
+
+        AppUtils.setActivityTheme(this);
+        super.onCreate(savedInstanceState);
+
+        if (coreConfigError != null) {
+            showCoreError("Unable to load win2apk.json: "+coreConfigError.getMessage());
             return;
         }
 
         AssetPackDiagnostics.log(this, coreConfig);
 
         if (coreMode) {
-            coreConfig.applyRuntimePreferences(this);
             initializeCoreMode();
             return;
         }
@@ -81,10 +87,13 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         drawerLayout = findViewById(R.id.DrawerLayout);
         NavigationView navigationView = findViewById(R.id.NavigationView);
         navigationView.setNavigationItemSelectedListener(this);
+        permanentNavigation = getResources().getBoolean(R.bool.use_permanent_navigation);
+        if (permanentNavigation && drawerLayout != null) {
+            drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_OPEN, GravityCompat.START);
+        }
 
         setSupportActionBar(findViewById(R.id.Toolbar));
         ActionBar actionBar = getSupportActionBar();
-        actionBar.setDisplayHomeAsUpEnabled(true);
 
         preferences = PreferenceManager.getDefaultSharedPreferences(this);
 
@@ -92,7 +101,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
         editInputControls = intent.getBooleanExtra("edit_input_controls", false);
         if (editInputControls) {
             selectedProfileId = intent.getIntExtra("selected_profile_id", 0);
-            actionBar.setHomeAsUpIndicator(R.drawable.icon_action_bar_back);
+            updateNavigationIcon(true);
             onNavigationItemSelected(navigationView.getMenu().findItem(R.id.menu_item_input_controls));
             navigationView.setCheckedItem(R.id.menu_item_input_controls);
         }
@@ -101,7 +110,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             int selectedMenuItemId = intent.getIntExtra("selected_menu_item_id", 0);
             int menuItemId = selectedMenuItemId > 0 ? selectedMenuItemId : (showShortcutsFirst ? R.id.menu_item_shortcuts : R.id.menu_item_containers);
 
-            actionBar.setHomeAsUpIndicator(R.drawable.icon_action_bar_menu);
+            updateNavigationIcon(false);
             onNavigationItemSelected(navigationView.getMenu().findItem(menuItemId));
             navigationView.setCheckedItem(menuItemId);
             if (!requestAppPermissions()) RootFSInstaller.installIfNeeded(this, ready -> ensureDefaultContainer(ready));
@@ -202,8 +211,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     }
 
     private void initializeCoreMode() {
-        setContentView(R.layout.core_loading_activity);
-        ((android.widget.TextView)findViewById(R.id.CoreLoadingText)).setText(coreConfig.getLoadingText());
+        setContentView(R.layout.loading_screen);
 
         if (coreConfig.shouldRequestStoragePermission()) {
             if (!requestAppPermissions()) RootFSInstaller.installIfNeeded(this, this::onCoreRootFSReady, true);
@@ -217,7 +225,6 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             return;
         }
 
-        ((android.widget.TextView)findViewById(R.id.CoreLoadingText)).setText(coreConfig.getLoadingText());
         ContainerManager manager = new ContainerManager(this);
         manager.createConfiguredContainerAsync(coreConfig, container -> {
             if (container == null) {
@@ -241,7 +248,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     }
 
     private void showCoreError(String message) {
-        new AlertDialog.Builder(this)
+        new MaterialAlertDialogBuilder(this)
                 .setTitle("Winlator Core error")
                 .setMessage(message != null ? message : "Unknown error")
                 .setCancelable(false)
@@ -268,7 +275,7 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     BaseFileManagerFragment fileManagerFragment = (BaseFileManagerFragment)currentFragment;
                     if (fileManagerFragment.onOptionsMenuClicked()) return true;
                 }
-                drawerLayout.openDrawer(GravityCompat.START);
+                if (!permanentNavigation) drawerLayout.openDrawer(GravityCompat.START);
             }
             return true;
         }
@@ -309,7 +316,25 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             .replace(R.id.FLFragmentContainer, fragment)
             .commit();
 
-        drawerLayout.closeDrawer(GravityCompat.START);
+        updateNavigationIcon(false);
+        if (!permanentNavigation) drawerLayout.closeDrawer(GravityCompat.START);
         currentFragment = fragment;
+    }
+
+    public void updateNavigationIcon(boolean showBack) {
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar == null) return;
+
+        if (showBack || editInputControls) {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+            actionBar.setHomeAsUpIndicator(R.drawable.icon_action_bar_back);
+        }
+        else if (permanentNavigation) {
+            actionBar.setDisplayHomeAsUpEnabled(false);
+        }
+        else {
+            actionBar.setDisplayHomeAsUpEnabled(true);
+            actionBar.setHomeAsUpIndicator(R.drawable.icon_action_bar_menu);
+        }
     }
 }

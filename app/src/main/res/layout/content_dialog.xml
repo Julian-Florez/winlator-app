@@ -1,134 +1,204 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
-    android:layout_width="wrap_content"
+    android:id="@+id/DialogCard"
+    android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:padding="16dp">
+    android:importantForAccessibility="yes"
+    app:cardBackgroundColor="?attr/colorSecondarySurface"
+    app:cardCornerRadius="@dimen/dialog_corner_radius"
+    app:cardElevation="@dimen/dialog_elevation"
+    app:strokeColor="?attr/colorSecondaryVariant"
+    app:strokeWidth="1dp">
 
     <LinearLayout
-        android:id="@+id/LLTitleBar"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:visibility="gone">
+        android:paddingStart="@dimen/dialog_content_padding"
+        android:paddingTop="@dimen/dialog_content_padding"
+        android:paddingEnd="@dimen/dialog_content_padding"
+        android:paddingBottom="@dimen/dialog_action_padding">
 
         <LinearLayout
+            android:id="@+id/LLTitleBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginBottom="@dimen/dialog_section_spacing"
+            android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:visibility="gone">
 
             <ImageView
                 android:id="@+id/IVIcon"
-                android:layout_width="28dp"
-                android:layout_height="28dp"
-                app:tint="?attr/colorPrimaryVariant"
-                android:layout_marginRight="8dp"
-                android:visibility="gone" />
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_marginEnd="12dp"
+                android:importantForAccessibility="no"
+                android:visibility="gone"
+                app:tint="?attr/colorPrimaryVariant" />
 
             <TextView
                 android:id="@+id/TVTitle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textColor="?attr/colorPrimaryVariant"
-                android:textStyle="bold"
-                android:textSize="18sp" />
-        </LinearLayout>
-
-        <View style="@style/HorizontalLine" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical"
-        android:layout_marginBottom="8dp">
-
-        <ImageView
-            android:id="@+id/IVMessageIcon"
-            android:layout_width="50dp"
-            android:layout_height="50dp"
-            app:tint="?attr/colorPrimaryVariant"
-            android:layout_marginRight="16dp"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/TVMessage"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="18sp"
-            android:visibility="gone" />
-    </LinearLayout>
-
-    <EditText
-        style="@style/EditText"
-        android:id="@+id/EditText"
-        android:layout_width="280dp"
-        android:layout_gravity="center_horizontal"
-        android:visibility="gone" />
-
-    <ListView
-        android:id="@+id/ListView"
-        android:layout_width="340dp"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:visibility="gone" />
-
-    <FrameLayout
-        android:id="@+id/FrameLayout"
-        android:layout_width="wrap_content"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:visibility="gone" />
-
-    <LinearLayout
-        android:id="@+id/LLBottomBar"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
-
-        <View style="@style/HorizontalLine" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:gravity="right">
-
-            <TextView
-                android:id="@+id/TVBottomBarText"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
+                android:textColor="?attr/colorPrimaryText"
+                android:textSize="20sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <FrameLayout
+            android:id="@+id/DialogBody"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
+
+            <androidx.core.widget.NestedScrollView
+                android:id="@+id/DialogScrollView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:clipToPadding="false"
+                android:fillViewport="true"
+                android:overScrollMode="ifContentScrolls">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical">
+
+                    <LinearLayout
+                        android:id="@+id/LLMessage"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:gravity="center_vertical"
+                        android:orientation="horizontal"
+                        android:paddingTop="8dp"
+                        android:paddingBottom="8dp"
+                        android:visibility="gone">
+
+                        <ImageView
+                            android:id="@+id/IVMessageIcon"
+                            android:layout_width="40dp"
+                            android:layout_height="40dp"
+                            android:layout_marginEnd="16dp"
+                            android:importantForAccessibility="no"
+                            android:visibility="gone"
+                            app:tint="?attr/colorPrimaryVariant" />
+
+                        <TextView
+                            android:id="@+id/TVMessage"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:textColor="?attr/colorPrimaryText"
+                            android:textSize="16sp" />
+                    </LinearLayout>
+
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/TextInputLayout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:layout_marginBottom="8dp"
+                        android:visibility="gone">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/EditText"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:minHeight="@dimen/dialog_min_touch_target"
+                            android:inputType="text"
+                            android:maxLines="1"
+                            android:textColor="?attr/colorPrimaryText"
+                            android:textColorHint="?attr/colorSecondaryText"
+                            android:textSize="16sp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <FrameLayout
+                        android:id="@+id/FrameLayout"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </androidx.core.widget.NestedScrollView>
+
+            <ListView
+                android:id="@+id/ListView"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:choiceMode="none"
+                android:clipToPadding="false"
+                android:paddingTop="4dp"
+                android:paddingBottom="4dp"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <LinearLayout
+            android:id="@+id/LLBottomBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="@dimen/dialog_section_spacing"
+            android:orientation="vertical">
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginBottom="@dimen/dialog_action_spacing"
+                android:background="?attr/colorSecondaryVariant" />
+
+            <TextView
+                android:id="@+id/TVBottomBarText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="8dp"
                 android:textColor="?attr/colorPrimaryVariant"
                 android:textStyle="bold"
                 android:visibility="gone" />
 
             <LinearLayout
                 android:id="@+id/LLBottomBarPanel"
-                android:layout_width="0dp"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:layout_marginBottom="8dp"
                 android:orientation="horizontal"
                 android:visibility="gone" />
 
-            <Button
-                style="@style/ButtonNeutral"
-                android:id="@+id/BTReset"
-                android:text="@string/reset"
-                android:visibility="gone" />
+            <LinearLayout
+                android:id="@+id/LLActions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:orientation="horizontal">
 
-            <Button
-                style="@style/ButtonNeutral"
-                android:text="@string/cancel"
-                android:id="@+id/BTCancel" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/BTReset"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/dialog_action_spacing"
+                    android:minHeight="@dimen/dialog_min_touch_target"
+                    android:text="@string/reset"
+                    android:textAllCaps="false"
+                    android:visibility="gone" />
 
-            <Button
-                style="@style/ButtonNeutral"
-                android:text="@string/ok"
-                android:id="@+id/BTConfirm" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/BTCancel"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/dialog_action_spacing"
+                    android:minHeight="@dimen/dialog_min_touch_target"
+                    android:text="@string/cancel"
+                    android:textAllCaps="false" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/BTConfirm"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="@dimen/dialog_action_spacing"
+                    android:minHeight="@dimen/dialog_min_touch_target"
+                    android:text="@string/ok"
+                    android:textAllCaps="false" />
+            </LinearLayout>
         </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</com.google.android.material.card.MaterialCardView>

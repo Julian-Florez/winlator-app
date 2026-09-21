@@ -18,6 +18,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
+import com.winlator.core.AppUtils;
 import com.winlator.inputcontrols.Binding;
 import com.winlator.inputcontrols.ControlElement;
 import com.winlator.inputcontrols.ControlsProfile;
@@ -38,6 +39,9 @@ import java.util.TimerTask;
 
 public class InputControlsView extends View {
     public static final float DEFAULT_OVERLAY_OPACITY = 0.4f;
+    public static final String TOUCHSCREEN_CONTROLS_MODE_ALWAYS = "always";
+    public static final String TOUCHSCREEN_CONTROLS_MODE_NO_PHYSICAL_CONTROLLER = "when_no_physical_controller";
+    public static final String TOUCHSCREEN_CONTROLS_MODE_NEVER = "never";
     private boolean editMode = false;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private ColorFilter lightColorFilter;
@@ -60,6 +64,8 @@ public class InputControlsView extends View {
     private Timer mouseMoveTimer;
     private final PointF mouseMoveOffset = new PointF();
     private boolean showTouchscreenControls = true;
+    private boolean physicalControllerConnected = false;
+    private String touchscreenControlsMode = TOUCHSCREEN_CONTROLS_MODE_ALWAYS;
 
     public InputControlsView(Context context) {
         super(context);
@@ -112,7 +118,7 @@ public class InputControlsView extends View {
             if (!profile.isElementsLoaded()) profile.loadElements(this);
             List<ControlElement> elements = profile.getElements();
             if (touchpadView != null && elements.isEmpty()) touchpadView.setPointerButtonRightEnabled(true);
-            if (showTouchscreenControls) for (ControlElement element : elements) element.draw(canvas);
+            if (areRuntimeControlsActive() || editMode) for (ControlElement element : elements) element.draw(canvas);
         }
 
         super.onDraw(canvas);
@@ -213,6 +219,7 @@ public class InputControlsView extends View {
             deselectAllElements();
         }
         else this.profile = null;
+        updateRuntimeVisibility();
     }
 
     public boolean isShowTouchscreenControls() {
@@ -221,6 +228,33 @@ public class InputControlsView extends View {
 
     public void setShowTouchscreenControls(boolean showTouchscreenControls) {
         this.showTouchscreenControls = showTouchscreenControls;
+        updateRuntimeVisibility();
+    }
+
+    public void setTouchscreenControlsMode(String mode) {
+        if (TOUCHSCREEN_CONTROLS_MODE_NO_PHYSICAL_CONTROLLER.equals(mode) ||
+            TOUCHSCREEN_CONTROLS_MODE_NEVER.equals(mode)) {
+            touchscreenControlsMode = mode;
+        }
+        else touchscreenControlsMode = TOUCHSCREEN_CONTROLS_MODE_ALWAYS;
+        updateRuntimeVisibility();
+    }
+
+    public void setPhysicalControllerConnected(boolean connected) {
+        physicalControllerConnected = connected;
+        updateRuntimeVisibility();
+    }
+
+    private boolean areRuntimeControlsActive() {
+        if (!showTouchscreenControls || TOUCHSCREEN_CONTROLS_MODE_NEVER.equals(touchscreenControlsMode)) return false;
+        return !TOUCHSCREEN_CONTROLS_MODE_NO_PHYSICAL_CONTROLLER.equals(touchscreenControlsMode) || !physicalControllerConnected;
+    }
+
+    private void updateRuntimeVisibility() {
+        if (!editMode && profile != null) {
+            super.setVisibility(areRuntimeControlsActive() ? View.VISIBLE : View.GONE);
+        }
+        invalidate();
     }
 
     private synchronized ControlElement intersectElement(float x, float y) {
@@ -244,6 +278,58 @@ public class InputControlsView extends View {
     public ColorFilter getDarkColorFilter() {
         if (darkColorFilter == null) darkColorFilter = new PorterDuffColorFilter(0xff000000, PorterDuff.Mode.SRC_IN);
         return darkColorFilter;
+    }
+
+    public ColorFilter getGamepadColorFilter(int color) {
+        return new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN);
+    }
+
+    public int getGamepadPrimaryColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorPrimary);
+    }
+
+    public int getGamepadOnPrimaryColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorOnPrimary);
+    }
+
+    public int getGamepadPrimaryContainerColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorPrimaryContainer);
+    }
+
+    public int getGamepadOnPrimaryContainerColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorOnPrimaryContainer);
+    }
+
+    public int getGamepadSecondaryContainerColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorSecondaryContainer);
+    }
+
+    public int getGamepadOnSecondaryContainerColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorOnSecondaryContainer);
+    }
+
+    public int getGamepadSurfaceContainerColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorSurfaceContainerHigh);
+    }
+
+    public int getGamepadSurfaceContainerHighestColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorSurfaceContainerHighest);
+    }
+
+    public int getGamepadOnSurfaceColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorOnSurface);
+    }
+
+    public int getGamepadOnSurfaceVariantColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorOnSurfaceVariant);
+    }
+
+    public int getGamepadOutlineColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorOutline);
+    }
+
+    public int getGamepadOutlineVariantColor() {
+        return AppUtils.getThemeColor(getContext(), com.google.android.material.R.attr.colorOutlineVariant);
     }
 
     public TouchpadView getTouchpadView() {
@@ -368,7 +454,7 @@ public class InputControlsView extends View {
             }
         }
 
-        if (!editMode && profile != null) {
+        if (!editMode && profile != null && areRuntimeControlsActive()) {
             int actionIndex = event.getActionIndex();
             int pointerId = event.getPointerId(actionIndex);
             int actionMasked = event.getActionMasked();

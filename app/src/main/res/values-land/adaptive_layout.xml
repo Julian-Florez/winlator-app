@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <integer name="container_list_span_count">2</integer>
+    <integer name="file_grid_span_count">3</integer>
+</resources>

@@ -9,6 +9,10 @@
     <string name="containers">Containers</string>
     <string name="input_controls">Input Controls</string>
     <string name="no_items_to_display">No items to display</string>
+    <string name="empty_containers_message">No containers yet\nCreate one to start configuring an application.</string>
+    <string name="empty_folder_message">This location is empty\nFiles and shortcuts will appear here.</string>
+    <string name="more_options">More options</string>
+    <string name="paste">Paste</string>
     <string name="new_container">New Container</string>
     <string name="edit_container">Edit Container</string>
     <string name="creating_container">Creating Container...</string>
@@ -17,6 +21,8 @@
     <string name="installing_system_files">Installing System Files...</string>
     <string name="updating_system_files">Updating System Files...</string>
     <string name="starting_up">Starting up...</string>
+    <string name="preparing_application">Preparing application...</string>
+    <string name="loading_status">Cargando</string>
     <string name="unable_to_install_system_files">Unable to install system files</string>
     <string name="keyboard">Keyboard</string>
     <string name="toggle_fullscreen">Toggle Fullscreen</string>

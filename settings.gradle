@@ -3,7 +3,7 @@ import groovy.json.JsonSlurper
 include ':app'
 
 def configPath = System.getenv('WIN2APK_CONFIG')?.trim()
-def configFile = configPath ? new File(configPath) : rootProject.file('../../config/win2apk.json')
+def configFile = configPath ? new File(configPath) : new File(settingsDir, '../../config/win2apk.json')
 if (!configFile.isFile()) {
     throw new GradleException("Missing Win2APK configuration: ${configFile}")
 }

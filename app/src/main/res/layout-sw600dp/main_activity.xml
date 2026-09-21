@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="horizontal">
+
+    <com.google.android.material.navigation.NavigationView
+        android:layout_width="@dimen/navigation_panel_width"
+        android:layout_height="match_parent"
+        android:id="@+id/NavigationView"
+        android:fitsSystemWindows="true"
+        android:background="?attr/colorSecondarySurface"
+        app:headerLayout="@layout/main_menu_header"
+        app:itemIconTint="?attr/colorAccent"
+        app:itemTextColor="?attr/colorPrimaryText"
+        app:menu="@menu/main_menu" />
+
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="match_parent"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <androidx.appcompat.widget.Toolbar
+            android:layout_width="match_parent"
+            android:layout_height="?actionBarSize"
+            android:id="@+id/Toolbar"
+            app:layout_scrollFlags="enterAlways|scroll"
+            app:title="@string/app_name" />
+
+        <FrameLayout
+            android:id="@+id/FLFragmentContainer"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            app:layout_behavior="@string/appbar_scrolling_view_behavior" />
+    </LinearLayout>
+</LinearLayout>

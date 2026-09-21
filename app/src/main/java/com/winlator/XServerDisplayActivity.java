@@ -7,6 +7,8 @@ import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.drawable.GradientDrawable;
+import android.hardware.input.InputManager;
 import android.os.Bundle;
 import android.view.KeyEvent;
 import android.view.Menu;
@@ -54,6 +56,7 @@ import com.winlator.core.PreloaderDialog;
 import com.winlator.core.ProcessHelper;
 import com.winlator.core.StringUtils;
 import com.winlator.core.TarCompressorUtils;
+import com.winlator.core.UnitUtils;
 import com.winlator.core.Win32AppWorkarounds;
 import com.winlator.core.WineInfo;
 import com.winlator.core.WineInstaller;
@@ -137,6 +140,23 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     private String screenEffectProfile;
     private boolean coreMode;
     private boolean closeCoreWhenApplicationExits;
+    private InputManager inputManager;
+    private final InputManager.InputDeviceListener inputDeviceListener = new InputManager.InputDeviceListener() {
+        @Override
+        public void onInputDeviceAdded(int deviceId) {
+            updatePhysicalControllerState();
+        }
+
+        @Override
+        public void onInputDeviceRemoved(int deviceId) {
+            updatePhysicalControllerState();
+        }
+
+        @Override
+        public void onInputDeviceChanged(int deviceId) {
+            updatePhysicalControllerState();
+        }
+    };
 
     @Override
     public void onCreate(Bundle savedInstanceState) {
@@ -159,12 +179,19 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED);
 
         NavigationView navigationView = findViewById(R.id.NavigationView);
-        if (coreMode) navigationView.setVisibility(View.GONE);
+        GradientDrawable navigationBackground = new GradientDrawable();
+        navigationBackground.setColor(AppUtils.getThemeColor(this, com.google.android.material.R.attr.colorSurfaceContainerHigh));
+        navigationBackground.setCornerRadius(UnitUtils.dpToPx(28));
+        navigationBackground.setStroke(
+                (int)UnitUtils.dpToPx(1),
+                AppUtils.getThemeColor(this, com.google.android.material.R.attr.colorOutlineVariant));
+        navigationView.setBackground(navigationBackground);
         ProcessHelper.removeAllDebugCallbacks();
         boolean enableLogs = preferences.getBoolean("enable_wine_debug", false) || preferences.getInt("box64_logs", 0) >= 1;
         if (enableLogs) ProcessHelper.addDebugCallback(debugDialog = new DebugDialog(this));
         Menu menu = navigationView.getMenu();
         menu.findItem(R.id.menu_item_logs).setVisible(enableLogs);
+        menu.findItem(R.id.menu_item_exit).setVisible(!coreMode);
         navigationView.setNavigationItemSelectedListener(this);
 
         rootFS = RootFS.find(this);
@@ -270,6 +297,9 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         });
 
         setupUI();
+        inputManager = (InputManager)getSystemService(INPUT_SERVICE);
+        if (inputManager != null) inputManager.registerInputDeviceListener(inputDeviceListener, null);
+        updatePhysicalControllerState();
 
         Executors.newSingleThreadExecutor().execute(() -> {
             if (!isGenerateWineprefix()) {
@@ -316,6 +346,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     @Override
     public void onResume() {
         super.onResume();
+        updatePhysicalControllerState();
         if (environment != null) {
             xServerView.onResume();
             environment.onResume();
@@ -333,6 +364,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
     @Override
     protected void onDestroy() {
+        if (inputManager != null) inputManager.unregisterInputDeviceListener(inputDeviceListener);
         winHandler.stop();
         if (environment != null) environment.stopEnvironmentComponents();
         super.onDestroy();
@@ -340,16 +372,16 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
 
     @Override
     public void onBackPressed() {
-        if (coreMode) {
-            finishAndRemoveTask();
-            return;
-        }
-
         if (environment != null) {
             if (!drawerLayout.isDrawerOpen(GravityCompat.START)) {
                 drawerLayout.openDrawer(GravityCompat.START);
             }
             else drawerLayout.closeDrawers();
+            return;
+        }
+
+        if (coreMode) {
+            finishAndRemoveTask();
         }
     }
 
@@ -426,6 +458,11 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
     private void exit() {
         winHandler.stop();
         if (environment != null) environment.stopEnvironmentComponents();
+
+        if (coreMode) {
+            finishAndRemoveTask();
+            return;
+        }
 
         Intent intent = getIntent();
         if (intent.hasExtra("exec_path")) {
@@ -603,6 +640,7 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         inputControlsView.setOverlayOpacity(preferences.getFloat("overlay_opacity", InputControlsView.DEFAULT_OVERLAY_OPACITY));
         inputControlsView.setTouchpadView(touchpadView);
         inputControlsView.setXServer(xServer);
+        inputControlsView.setPhysicalControllerConnected(ExternalController.hasConnectedController());
         inputControlsView.setVisibility(View.GONE);
         rootView.addView(inputControlsView);
 
@@ -614,11 +652,16 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         }
 
         if (shortcut != null) {
-            String controlsProfile = shortcut.getExtra("controlsProfile");
-            if (!controlsProfile.isEmpty()) {
-                ControlsProfile profile = inputControlsManager.getProfile(Integer.parseInt(controlsProfile));
-                if (profile != null) showInputControls(profile);
+            inputControlsView.setTouchscreenControlsMode(shortcut.getExtra("inputControlsMode", InputControlsView.TOUCHSCREEN_CONTROLS_MODE_ALWAYS));
+            String controlsProfileName = shortcut.getExtra("inputControlsProfile");
+            ControlsProfile profile = !controlsProfileName.isEmpty()
+                    ? inputControlsManager.getProfileByName(controlsProfileName)
+                    : null;
+            if (profile == null) {
+                String controlsProfile = shortcut.getExtra("controlsProfile");
+                if (!controlsProfile.isEmpty()) profile = inputControlsManager.getProfile(Integer.parseInt(controlsProfile));
             }
+            if (profile != null) showInputControls(profile);
         }
 
         if (MainActivity.DEBUG_MODE) rootView.addView(AppUtils.createDebugMsgTextView(this));
@@ -715,6 +758,10 @@ public class XServerDisplayActivity extends AppCompatActivity implements Navigat
         }
 
         inputControlsView.invalidate();
+    }
+
+    private void updatePhysicalControllerState() {
+        if (inputControlsView != null) inputControlsView.setPhysicalControllerConnected(ExternalController.hasConnectedController());
     }
 
     private void extractGraphicsDriverFiles() {

@@ -12,13 +12,23 @@
         android:layout_height="match_parent" />
 
     <com.google.android.material.navigation.NavigationView
-        android:layout_width="wrap_content"
-        android:layout_height="match_parent"
-        android:layout_gravity="start"
+        android:layout_width="280dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="start|center_vertical"
+        android:layout_margin="16dp"
         android:id="@+id/NavigationView"
-        app:headerLayout="@layout/main_menu_header"
-        app:itemIconTint="?attr/colorAccent"
-        app:itemTextColor="?attr/colorPrimaryText"
-        android:background="?attr/colorSecondarySurface"
+        android:accessibilityPaneTitle="@string/runtime_menu"
+        android:background="@drawable/runtime_menu_background"
+        android:elevation="12dp"
+        android:minHeight="0dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        app:itemIconPadding="12dp"
+        app:itemIconSize="22dp"
+        app:itemIconTint="?attr/colorPrimary"
+        app:itemHorizontalPadding="16dp"
+        app:itemTextAppearance="@style/RuntimeMenuItemText"
+        app:itemTextColor="?attr/colorOnSurface"
+        app:itemVerticalPadding="6dp"
         app:menu="@menu/xserver_menu"/>
 </androidx.drawerlayout.widget.DrawerLayout>

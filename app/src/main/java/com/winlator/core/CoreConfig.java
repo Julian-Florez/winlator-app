@@ -68,6 +68,11 @@ public final class CoreConfig {
         return section("shortcut");
     }
 
+    private JSONObject inputControlsSection() {
+        JSONObject inputControls = shortcutSection().optJSONObject("inputControls");
+        return inputControls != null ? inputControls : new JSONObject();
+    }
+
     private JSONObject startupSection() {
         return section("startup");
     }
@@ -286,10 +291,18 @@ public final class CoreConfig {
 
         String execArguments = string(shortcut, "execArguments", "");
         boolean forceFullscreen = bool(shortcut, "forceFullscreen", false);
-        if (!execArguments.isEmpty() || forceFullscreen) {
-            content.append("\n[Extra Data]\n");
-            if (!execArguments.isEmpty()) content.append("execArgs=").append(execArguments).append("\n");
-            if (forceFullscreen) content.append("forceFullscreen=1\n");
+        JSONObject inputControls = inputControlsSection();
+        String inputControlsProfile = string(inputControls, "profile", "").trim();
+        String inputControlsMode = string(inputControls, "mode", "always").trim();
+        StringBuilder extraData = new StringBuilder();
+        if (!execArguments.isEmpty()) extraData.append("execArgs=").append(execArguments).append("\n");
+        if (forceFullscreen) extraData.append("forceFullscreen=1\n");
+        if (!inputControlsProfile.isEmpty()) {
+            extraData.append("inputControlsProfile=").append(inputControlsProfile).append("\n");
+            extraData.append("inputControlsMode=").append(inputControlsMode).append("\n");
+        }
+        if (extraData.length() > 0) {
+            content.append("\n[Extra Data]\n").append(extraData);
         }
         return content.toString();
     }

@@ -2,10 +2,8 @@ package com.winlator.core;
 
 import android.app.Activity;
 import android.app.Dialog;
-import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.widget.TextView;
 
 import com.google.android.material.progressindicator.CircularProgressIndicator;
 import com.winlator.R;
@@ -25,7 +23,7 @@ public class DownloadProgressDialog {
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
         dialog.setCancelable(false);
         dialog.setCanceledOnTouchOutside(false);
-        dialog.setContentView(R.layout.download_progress_dialog);
+        dialog.setContentView(R.layout.loading_screen);
 
         Window window = dialog.getWindow();
         if (window != null) {
@@ -51,12 +49,11 @@ public class DownloadProgressDialog {
         close();
         if (dialog == null) create();
 
-        if (textResId > 0) ((TextView)dialog.findViewById(R.id.TextView)).setText(textResId);
-
+        CircularProgressIndicator indicator = (CircularProgressIndicator)dialog.findViewById(R.id.LoadingIndicator);
+        indicator.setIndeterminate(false);
         setProgress(0);
         if (onCancelCallback != null) {
-            dialog.findViewById(R.id.BTCancel).setOnClickListener((v) -> onCancelCallback.run());
-            dialog.findViewById(R.id.LLBottomBar).setVisibility(View.VISIBLE);
+            dialog.findViewById(R.id.LoadingControl).setOnClickListener((v) -> onCancelCallback.run());
         }
         dialog.show();
     }
@@ -64,8 +61,7 @@ public class DownloadProgressDialog {
     public void setProgress(int progress) {
         if (dialog == null) return;
         progress = Mathf.clamp(progress, 0, 100);
-        ((CircularProgressIndicator)dialog.findViewById(R.id.CircularProgressIndicator)).setProgress(progress);
-        ((TextView)dialog.findViewById(R.id.TVProgress)).setText(progress+"%");
+        ((CircularProgressIndicator)dialog.findViewById(R.id.LoadingIndicator)).setProgress(progress);
     }
 
     public void close() {
